@@ -1,0 +1,338 @@
+{
+  "gate": "quartus-sta",
+  "timestamp_utc": "2026-10-29T17:13:26.469412+00:00",
+  "project_dir": "/data/sufeng/furnace-x3-line/workspace/project/.vulcan/engineering/run-0001/quartus_sta_work",
+  "revision": "top",
+  "clock_filter": "clk_main",
+  "min_setup_slack_ns": 0.0,
+  "min_hold_slack_ns": 0.0,
+  "status": "passed",
+  "map_summary": {
+    "exists": true,
+    "path": "/data/sufeng/furnace-x3-line/workspace/project/.vulcan/engineering/run-0001/quartus_sta_work/top.map.rpt",
+    "error_count": 0,
+    "errors": [],
+    "lpm_divide_error_count": 0,
+    "lpm_divide_errors": [],
+    "warning_10268_count": 0,
+    "warning_10268": [],
+    "uninferred_ram_count": 3,
+    "uninferred_rams": [
+      "Info (276007): RAM logic \"furnace_x2_top:g_legal.x2_core|furnace_classifier64:g_legal.classifier|values\" is uninferred due to asynchronous read logic File: /data/sufeng/furnace-x3-line/workspace/project/.vulcan/engineering/run-0001/quartus_sta_work/rtl_staged/furnace_classifier64.sv Line: 16",
+      "Info (276007): RAM logic \"furnace_x2_top:g_legal.x2_core|furnace_classifier64:g_legal.classifier|masks\" is uninferred due to asynchronous read logic File: /data/sufeng/furnace-x3-line/workspace/project/.vulcan/engineering/run-0001/quartus_sta_work/rtl_staged/furnace_classifier64.sv Line: 17",
+      "Info (276007): RAM logic \"furnace_x2_top:g_legal.x2_core|furnace_classifier64:g_legal.classifier|actions\" is uninferred due to asynchronous read logic File: /data/sufeng/furnace-x3-line/workspace/project/.vulcan/engineering/run-0001/quartus_sta_work/rtl_staged/furnace_classifier64.sv Line: 18"
+    ]
+  },
+  "sta_summary": {
+    "exit_code": 0,
+    "netlist_mode": "post_fit",
+    "clocks": [
+      {
+        "name": "clk_main",
+        "period_ns": 10.0
+      }
+    ],
+    "wns_setup_ns": 0.503,
+    "wns_hold_ns": 0.04,
+    "unconstrained_setup_paths": 0,
+    "unconstrained_functional_endpoints": 0,
+    "unapproved_timing_exceptions": 0,
+    "failing_setup_count": 0,
+    "failing_hold_count": 0,
+    "setup_paths": [
+      {
+        "slack_ns": 0.503,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x2_top:g_legal.x2_core",
+        "to_node": "furnace_classifier64:g_legal.classifier|busy|furnace_x2_top:g_legal.x2_core|furnace_classifier64:g_legal.classifier|value_q[185]"
+      },
+      {
+        "slack_ns": 0.615,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_drr_scheduler:g_legal.scheduler",
+        "to_node": "grant_queue[0]|furnace_token_bucket8:g_legal.shaper|balance[4][46]"
+      },
+      {
+        "slack_ns": 0.615,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_drr_scheduler:g_legal.scheduler",
+        "to_node": "grant_queue[0]|furnace_token_bucket8:g_legal.shaper|balance[4][46]"
+      },
+      {
+        "slack_ns": 0.615,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_drr_scheduler:g_legal.scheduler",
+        "to_node": "grant_queue[0]|furnace_token_bucket8:g_legal.shaper|balance[4][46]"
+      },
+      {
+        "slack_ns": 0.615,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_drr_scheduler:g_legal.scheduler",
+        "to_node": "grant_queue[0]|furnace_token_bucket8:g_legal.shaper|balance[4][46]"
+      },
+      {
+        "slack_ns": 0.631,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_drr_scheduler:g_legal.scheduler",
+        "to_node": "grant_queue[0]|furnace_token_bucket8:g_legal.shaper|balance[4][46]"
+      },
+      {
+        "slack_ns": 0.631,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_drr_scheduler:g_legal.scheduler",
+        "to_node": "grant_queue[0]|furnace_token_bucket8:g_legal.shaper|balance[4][46]"
+      },
+      {
+        "slack_ns": 0.631,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_drr_scheduler:g_legal.scheduler",
+        "to_node": "grant_queue[0]|furnace_token_bucket8:g_legal.shaper|balance[4][46]"
+      },
+      {
+        "slack_ns": 0.631,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_drr_scheduler:g_legal.scheduler",
+        "to_node": "grant_queue[0]|furnace_token_bucket8:g_legal.shaper|balance[4][46]"
+      },
+      {
+        "slack_ns": 0.638,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x2_top:g_legal.x2_core",
+        "to_node": "furnace_classifier64:g_legal.classifier|busy|furnace_x2_top:g_legal.x2_core|furnace_classifier64:g_legal.classifier|mask_q[8]"
+      },
+      {
+        "slack_ns": 0.641,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_drr_scheduler:g_legal.scheduler",
+        "to_node": "grant_queue[0]|furnace_token_bucket8:g_legal.shaper|balance[4][46]"
+      },
+      {
+        "slack_ns": 0.641,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_drr_scheduler:g_legal.scheduler",
+        "to_node": "grant_queue[0]|furnace_token_bucket8:g_legal.shaper|balance[4][46]"
+      },
+      {
+        "slack_ns": 0.641,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_drr_scheduler:g_legal.scheduler",
+        "to_node": "grant_queue[0]|furnace_token_bucket8:g_legal.shaper|balance[4][46]"
+      },
+      {
+        "slack_ns": 0.641,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_drr_scheduler:g_legal.scheduler",
+        "to_node": "grant_queue[0]|furnace_token_bucket8:g_legal.shaper|balance[4][46]"
+      },
+      {
+        "slack_ns": 0.657,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_drr_scheduler:g_legal.scheduler",
+        "to_node": "grant_queue[0]|furnace_token_bucket8:g_legal.shaper|balance[4][46]"
+      },
+      {
+        "slack_ns": 0.657,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_drr_scheduler:g_legal.scheduler",
+        "to_node": "grant_queue[0]|furnace_token_bucket8:g_legal.shaper|balance[4][46]"
+      },
+      {
+        "slack_ns": 0.657,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_drr_scheduler:g_legal.scheduler",
+        "to_node": "grant_queue[0]|furnace_token_bucket8:g_legal.shaper|balance[4][46]"
+      },
+      {
+        "slack_ns": 0.657,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_drr_scheduler:g_legal.scheduler",
+        "to_node": "grant_queue[0]|furnace_token_bucket8:g_legal.shaper|balance[4][46]"
+      },
+      {
+        "slack_ns": 0.669,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x2_top:g_legal.x2_core",
+        "to_node": "furnace_rss_toeplitz:g_legal.rss|out_valid|furnace_x2_top:g_legal.x2_core|furnace_classifier64:g_legal.classifier|value_q[185]"
+      },
+      {
+        "slack_ns": 0.673,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_drr_scheduler:g_legal.scheduler",
+        "to_node": "grant_queue[0]|furnace_token_bucket8:g_legal.shaper|balance[4][46]"
+      }
+    ],
+    "hold_paths": [
+      {
+        "slack_ns": 0.04,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x2_top:g_legal.x2_core",
+        "to_node": "furnace_header_parser:g_legal.parser|g_legal.more_fragments|furnace_x2_top:g_legal.x2_core|furnace_header_parser:g_legal.parser|g_legal.more_fragments"
+      },
+      {
+        "slack_ns": 0.043,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x2_top:g_legal.x2_core",
+        "to_node": "furnace_rss_toeplitz:g_legal.rss|accumulator[2]|furnace_x2_top:g_legal.x2_core|furnace_rss_toeplitz:g_legal.rss|accumulator[2]"
+      },
+      {
+        "slack_ns": 0.045,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x2_top:g_legal.x2_core",
+        "to_node": "furnace_rss_toeplitz:g_legal.rss|accumulator[18]|furnace_x2_top:g_legal.x2_core|furnace_rss_toeplitz:g_legal.rss|accumulator[18]"
+      },
+      {
+        "slack_ns": 0.045,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x2_top:g_legal.x2_core",
+        "to_node": "furnace_rss_toeplitz:g_legal.rss|accumulator[8]|furnace_x2_top:g_legal.x2_core|furnace_rss_toeplitz:g_legal.rss|accumulator[8]"
+      },
+      {
+        "slack_ns": 0.046,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x2_top:g_legal.x2_core",
+        "to_node": "furnace_x1_top:g_legal.crc_core|furnace_crc_beat_pipeline:g_legal.beat_pipeline|contribution[97][12]|furnace_x2_top:g_legal.x2_core|furnace_x1_top:g_legal.crc_core|furnace_crc_beat_pipeline:g_legal.beat_pipeline|contribution[48][12]"
+      },
+      {
+        "slack_ns": 0.047,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x2_top:g_legal.x2_core",
+        "to_node": "furnace_rss_toeplitz:g_legal.rss|accumulator[14]|furnace_x2_top:g_legal.x2_core|furnace_rss_toeplitz:g_legal.rss|accumulator[14]"
+      },
+      {
+        "slack_ns": 0.049,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x2_top:g_legal.x2_core",
+        "to_node": "furnace_rss_toeplitz:g_legal.rss|accumulator[25]|furnace_x2_top:g_legal.x2_core|furnace_rss_toeplitz:g_legal.rss|accumulator[25]"
+      },
+      {
+        "slack_ns": 0.049,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x2_top:g_legal.x2_core",
+        "to_node": "furnace_rss_toeplitz:g_legal.rss|accumulator[16]|furnace_x2_top:g_legal.x2_core|furnace_rss_toeplitz:g_legal.rss|accumulator[16]"
+      },
+      {
+        "slack_ns": 0.05,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x2_top:g_legal.x2_core",
+        "to_node": "furnace_rss_toeplitz:g_legal.rss|accumulator[31]|furnace_x2_top:g_legal.x2_core|furnace_rss_toeplitz:g_legal.rss|accumulator[31]"
+      },
+      {
+        "slack_ns": 0.052,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_token_bucket8:g_legal.shaper",
+        "to_node": "reservation_settled|furnace_token_bucket8:g_legal.shaper|reservation_settled"
+      },
+      {
+        "slack_ns": 0.053,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x2_top:g_legal.x2_core",
+        "to_node": "furnace_x1_top:g_legal.crc_core|furnace_crc_packet_accumulator:g_legal.packet_accumulator|state32[10]|furnace_x2_top:g_legal.x2_core|furnace_x1_top:g_legal.crc_core|furnace_crc_packet_accumulator:g_legal.packet_accumulator|state32[10]"
+      },
+      {
+        "slack_ns": 0.053,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x2_top:g_legal.x2_core",
+        "to_node": "furnace_rss_toeplitz:g_legal.rss|accumulator[0]|furnace_x2_top:g_legal.x2_core|furnace_rss_toeplitz:g_legal.rss|accumulator[0]"
+      },
+      {
+        "slack_ns": 0.054,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x2_top:g_legal.x2_core",
+        "to_node": "furnace_x1_top:g_legal.crc_core|furnace_crc_beat_pipeline:g_legal.beat_pipeline|contribution[63][21]|furnace_x2_top:g_legal.x2_core|furnace_x1_top:g_legal.crc_core|furnace_crc_beat_pipeline:g_legal.beat_pipeline|contribution[31][21]"
+      },
+      {
+        "slack_ns": 0.054,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x2_top:g_legal.x2_core",
+        "to_node": "furnace_x1_top:g_legal.crc_core|furnace_crc_packet_accumulator:g_legal.packet_accumulator|state32[21]|furnace_x2_top:g_legal.x2_core|furnace_x1_top:g_legal.crc_core|furnace_crc_packet_accumulator:g_legal.packet_accumulator|state32[21]"
+      },
+      {
+        "slack_ns": 0.055,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x2_top:g_legal.x2_core",
+        "to_node": "furnace_rss_toeplitz:g_legal.rss|state.00|furnace_x2_top:g_legal.x2_core|furnace_rss_toeplitz:g_legal.rss|state.00"
+      },
+      {
+        "slack_ns": 0.055,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x2_top:g_legal.x2_core",
+        "to_node": "furnace_classifier64:g_legal.classifier|enabled[27]|furnace_x2_top:g_legal.x2_core|furnace_classifier64:g_legal.classifier|enabled[27]"
+      },
+      {
+        "slack_ns": 0.055,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x2_top:g_legal.x2_core",
+        "to_node": "g_legal.input_ended|furnace_x2_top:g_legal.x2_core|g_legal.input_ended"
+      },
+      {
+        "slack_ns": 0.056,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x2_top:g_legal.x2_core",
+        "to_node": "furnace_classifier64:g_legal.classifier|enabled[55]|furnace_x2_top:g_legal.x2_core|furnace_classifier64:g_legal.classifier|enabled[55]"
+      },
+      {
+        "slack_ns": 0.057,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x2_top:g_legal.x2_core",
+        "to_node": "furnace_classifier64:g_legal.classifier|equal_q|furnace_x2_top:g_legal.x2_core|furnace_classifier64:g_legal.classifier|equal_q~DUPLICATE"
+      },
+      {
+        "slack_ns": 0.058,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x2_top:g_legal.x2_core",
+        "to_node": "furnace_classifier64:g_legal.classifier|rule_number[4]|furnace_x2_top:g_legal.x2_core|furnace_classifier64:g_legal.classifier|rule_number[4]~DUPLICATE"
+      }
+    ],
+    "stderr_tail": []
+  },
+  "detail": "Timing closed: Setup WNS = 0.503 ns",
+  "top_module": "furnace_x3_top",
+  "clock_port": "clk",
+  "clock_period_ns": 10.0,
+  "target_frequency_mhz": 100.0,
+  "fmax_mhz": 105.3,
+  "critical_path_delay_ns": 9.497,
+  "parameters": {},
+  "source_sha256": "803fb76eeff6df17452537c1fddc8f97b4c357d851b0465568d0d258e6ed00ce",
+  "applicable": true
+}
