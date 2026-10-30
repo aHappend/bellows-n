@@ -1,16 +1,6 @@
 {
   "chip": "Bellows-N3",
-  "fitter_resources": {
-    "alms_used": 121873,
-    "alms_total": 427200,
-    "alms_pct": "29 %",
-    "total_registers": 95294,
-    "block_memory_bits": 94832,
-    "m20k_ram_blocks": 45,
-    "m20k_ram_blocks_total": 2713,
-    "dsp_blocks": 0,
-    "virtual_pins": 4296
-  },
+  "fitter_resources": {},
   "timing": {
     "device": "10AX115N2F45E1SG",
     "netlist_mode": "post_fit",
