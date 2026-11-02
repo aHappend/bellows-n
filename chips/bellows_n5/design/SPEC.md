@@ -10,6 +10,11 @@ and hierarchy. `GENERATIONAL_HANDOFF.md` reports no numerical parent Quartus
 timing or PPA, and only a connectivity-level physical bridge observation.
 Neither constitutes X5 acceptance.
 
+Implementation is in progress. The parent copies and X5 Top-K, reorder,
+BF16 multiply/combine, QP table, SACK and packet RX/TX modules are saved.
+The integrated MoE router, X5 engine and X5 top are not yet implemented.
+These leaves are not a completed or verified subsystem.
+
 Top: `bellows_n5_top`. One `clk`, active-low asynchronous `rst_n`.
 Target: Intel Arria 10 GX 10AX115N2F45E1SG, period <=10.0 ns.
 The custom X5 packet-spraying profile does not assert universal UEC wire

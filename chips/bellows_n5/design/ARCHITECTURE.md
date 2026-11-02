@@ -115,3 +115,10 @@ Verifier independently authors and runs all `tests/*`. Required portable
 commands and claim-to-evidence index are in `SPEC.md`. Native timing/physical
 gates and the final independently reviewed report belong to the shared runtime.
 The parent timing/PPA limitations in `GENERATIONAL_HANDOFF.md` are preserved.
+
+Current source boundary: parent deliverable copies and the substantive Top-K,
+reorder, multiplier, combiner, QP table, SACK, packet RX and packet TX leaves
+are present. The required MoE router, integrated engine and X5 top remain
+unimplemented. Their required hierarchy and control/storage responsibilities
+above describe the frozen integration target, not an existing connected
+implementation. No functional, synthesis, timing or physical result is claimed.
