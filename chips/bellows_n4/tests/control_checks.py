@@ -60,24 +60,36 @@ end
 endtask
 
 task automatic config_cases;
+integer fd,n,kind,count;
+reg [4095:0] path;
+reg [2:0] index,rank,status;
+reg enable;
+reg [23:0] qpn;
+reg [63:0] base,length,address;
+reg [1:0] fmt,op;
+reg [3:0] participants;
+reg [31:0] size;
 begin
-    qp_attempt(1,1,1,24'h120000,64'h1000,64'h10000,1);
-    qp_attempt(3,3,1,24'h120300,64'h1000,64'h10000,1);
-    qp_attempt(0,0,1,24'h120000,64'h1000,0,2);
-    qp_attempt(0,0,1,24'h120000,64'hfffffffffffffffe,4,2);
-    coll_attempt(3,0,1,4,64'h2003,3);
-    coll_attempt(0,3,1,4,64'h2003,3);
-    coll_attempt(0,0,0,4,64'h2003,3);
-    coll_attempt(0,0,9,4,64'h2003,3);
-    coll_attempt(0,0,1,0,64'h2003,3);
-    coll_attempt(0,0,1,3,64'h2003,3);
-    coll_attempt(2,0,1,6,64'h2003,3);
-    coll_attempt(0,0,1,4,64'hfff,2);
-    coll_attempt(0,0,1,4,64'hfffffffffffffffe,2);
-    coll_attempt(0,0,2,4,64'h2003,3);
-    qp_attempt(1,0,1,24'h120100,64'h1000,64'h10000,0);
-    coll_attempt(0,0,2,4,64'h2003,3);
-    qp_attempt(1,1,0,24'h120100,64'h1000,64'h10000,0);
+    if(!$value$plusargs("controls=%s",path)) $fatal(1,"CONTROL_VECTOR_PATH");
+    fd=$fopen(path,"r"); if(!fd) $fatal(1,"CONTROL_VECTOR_OPEN");
+    count=0;
+    while(!$feof(fd)) begin
+        n=$fscanf(fd,"%h",kind);
+        if(n==1) begin
+            if(kind==0) begin
+                n=$fscanf(fd,"%h %h %h %h %h %h %h\n",index,rank,enable,qpn,base,length,status);
+                if(n!=7) $fatal(1,"QP_CONTROL_VECTOR_FORMAT");
+                qp_attempt(index,rank,enable,qpn,base,length,status);
+            end else if(kind==1) begin
+                n=$fscanf(fd,"%h %h %h %h %h %h\n",fmt,op,participants,size,address,status);
+                if(n!=6) $fatal(1,"COLL_CONTROL_VECTOR_FORMAT");
+                coll_attempt(fmt,op,participants,size,address,status);
+            end else $fatal(1,"CONTROL_VECTOR_KIND");
+            count=count+1;
+        end else if(!(n==0 && $feof(fd))) $fatal(1,"CONTROL_VECTOR_FORMAT");
+    end
+    $fclose(fd);
+    if(count!=17) $fatal(1,"CONTROL_CONFIGURATION_COVERAGE");
     // Simultaneous requests: QP acceptance precedes collective acceptance.
     qp_cfg_valid=1; coll_cfg_valid=1; qp_cfg_index=0; qp_cfg_enable=1;
     qp_cfg_rank=0; qp_cfg_local_qpn=24'h120000; qp_cfg_base=64'h1000;
@@ -133,6 +145,24 @@ def run(execution, *, width=64):
     lines = commands.read_text().splitlines()
     lines.insert(1, "4")
     commands.write_text("\n".join(lines) + "\n")
+    controls = [
+        (0, 1, 1, 1, 0x120000, 0x1000, 0x10000, 1),
+        (0, 3, 3, 1, 0x120300, 0x1000, 0x10000, 1),
+        (0, 0, 0, 1, 0x120000, 0x1000, 0, 2),
+        (0, 0, 0, 1, 0x120000, 0xfffffffffffffffe, 4, 2),
+        *[(1, fmt, op, participants, size, address, status)
+          for fmt, op, participants, size, address, status in (
+              (3, 0, 1, 4, 0x2003, 3), (0, 3, 1, 4, 0x2003, 3),
+              (0, 0, 0, 4, 0x2003, 3), (0, 0, 9, 4, 0x2003, 3),
+              (0, 0, 1, 0, 0x2003, 3), (0, 0, 1, 3, 0x2003, 3),
+              (2, 0, 1, 6, 0x2003, 3), (0, 0, 1, 4, 0xfff, 2),
+              (0, 0, 1, 4, 0xfffffffffffffffe, 2), (0, 0, 2, 4, 0x2003, 3))],
+        (0, 1, 0, 1, 0x120100, 0x1000, 0x10000, 0),
+        (1, 0, 0, 2, 4, 0x2003, 3),
+        (0, 1, 1, 0, 0x120100, 0x1000, 0x10000, 0),
+    ]
+    (folder / "controls.hex").write_text("".join(
+        " ".join(f"{value:x}" for value in row) + "\n" for row in controls))
     source_text = source_text.replace("task automatic tick;", CONTROL_BODY + "\ntask automatic tick;")
     source_text = source_text.replace(
         'default: $fatal(1,"INVALID_COMMAND_KIND");',
@@ -153,7 +183,8 @@ def run(execution, *, width=64):
         raise RuntimeError(f"control compile exit {code}: {err[-4000:]}")
     code, out, err = execution.run(
         label + "-behavior",
-        [(obj / "Vintegrated_tb").as_posix(), f"+commands={(rel / 'commands.txt').as_posix()}"],
+        [(obj / "Vintegrated_tb").as_posix(), f"+commands={(rel / 'commands.txt').as_posix()}",
+         f"+controls={(rel / 'controls.hex').as_posix()}"],
         version_tool="verilator")
     if code or "SUMMARY frames=3 " not in out:
         raise AssertionError(f"control behavior exit {code}: {out[-4000:]} {err[-1000:]}")
