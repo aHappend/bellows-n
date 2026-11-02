@@ -20,7 +20,7 @@ def main():
     arguments = argparse.ArgumentParser()
     arguments.add_argument("--probe", choices=("parser", "alu", "alu-matrix", "integrated", "protocol",
                                              "structural", "stale-address", "stale-address-icarus",
-                                             "floating-mutations", "legacy-leaves"),
+                                             "floating-mutations", "legacy-leaves", "legacy-mutations"),
                            help="bounded preparation diagnostic")
     arguments.add_argument("--repair-of", action="append", default=[],
                            help="project-relative retained failure receipt")
@@ -51,6 +51,8 @@ def main():
             coverage = mutation_checks.run_float(execution)
         elif options.probe == "legacy-leaves":
             coverage = legacy_leaf_checks.run(execution)
+        elif options.probe == "legacy-mutations":
+            coverage = mutation_checks.run_legacy(execution)
         else:
             coverage = parser_checks.run(execution)
             coverage.update(alu_checks.run(execution, widths=(64,), seeds=(17,),
@@ -62,6 +64,7 @@ def main():
             coverage.update(structural_checks.run(execution))
             coverage.update(mutation_checks.run_float(execution))
             coverage["legacy_leaves"] = legacy_leaf_checks.run(execution)
+            coverage["legacy_mutations"] = mutation_checks.run_legacy(execution)
     except (AssertionError, RuntimeError, FileNotFoundError) as error:
         receipt = execution.finish("failed", str(error), repair_of=options.repair_of)
         print(f"FAILED {error}\nReceipt: {receipt}", flush=True)

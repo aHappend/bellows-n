@@ -5,6 +5,7 @@ import json
 import shutil
 
 import alu_checks
+import legacy_leaf_checks
 
 
 FLOAT_MUTATIONS = (
@@ -15,6 +16,51 @@ FLOAT_MUTATIONS = (
      "(a1[31]|b1[31])",
      "(a1[31]&b1[31])"),
 )
+
+LEGACY_MUTATIONS = (
+    ("rss-bit-order", "furnace_rss_toeplitz.sv",
+     "in_tuple[295]) ? in_key[327:296]", "in_tuple[294]) ? in_key[327:296]",
+     "RSS_ASSERTION"),
+    ("tcam-priority", "furnace_classifier64.sv",
+     "wire current_wins = !found && enable_q && equal_q;",
+     "wire current_wins = enable_q && equal_q;", "TCAM_ASSERTION"),
+)
+
+
+def run_legacy(execution):
+    control = legacy_leaf_checks.run(execution, prefix="legacy-mutation-control")
+    records = []
+    for name, filename, before, after, assertion in LEGACY_MUTATIONS:
+        original = execution.root / "rtl" / filename
+        text = original.read_text()
+        if text.count(before) != 1:
+            raise AssertionError(f"mutation anchor must occur exactly once: {name}")
+        changed = text.replace(before, after)
+        fingerprint = hashlib.sha256(changed.encode()).hexdigest()
+        folder = execution.folder / f"{name}-{fingerprint[:8]}"
+        rtl = folder / "rtl"
+        rtl.mkdir(parents=True, exist_ok=False)
+        for target in ("furnace_rss_toeplitz.sv", "furnace_classifier64.sv"):
+            shutil.copy2(execution.root / "rtl" / target, rtl)
+        (rtl / filename).write_text(changed)
+        detected = None
+        try:
+            legacy_leaf_checks.run(
+                execution, rtl_root=rtl.relative_to(execution.root).as_posix(), prefix=name)
+        except AssertionError as error:
+            if assertion not in str(error):
+                raise
+            detected = str(error)
+        if detected is None:
+            raise AssertionError(f"{name} survived the designated protocol/numerical assertion")
+        records.append({"name": name, "target": f"rtl/{filename}",
+                        "before": before, "after": after,
+                        "original_sha256": hashlib.sha256(original.read_bytes()).hexdigest(),
+                        "mutated_sha256": fingerprint, "assertion": assertion,
+                        "first_failure": detected,
+                        "source": (rtl / filename).relative_to(execution.root).as_posix()})
+    (execution.folder / "legacy-mutations.json").write_text(json.dumps(records, indent=2) + "\n")
+    return {"legacy_mutations": records, "control": control}
 
 
 def run_float(execution):
