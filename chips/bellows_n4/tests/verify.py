@@ -8,6 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from execution import Execution, fresh
 import alu_checks
+import dma_checks
 import integrated_checks
 import legacy_leaf_checks
 import mutation_checks
@@ -22,7 +23,7 @@ def main():
     arguments.add_argument("--probe", choices=("parser", "alu", "alu-matrix", "integrated", "protocol",
                                              "structural", "stale-address", "stale-address-icarus",
                                              "floating-mutations", "legacy-leaves", "legacy-mutations",
-                                             "qos", "packet-mutations", "boundaries"),
+                                             "qos", "packet-mutations", "boundaries", "dma"),
                            help="bounded preparation diagnostic")
     arguments.add_argument("--repair-of", action="append", default=[],
                            help="project-relative retained failure receipt")
@@ -65,6 +66,9 @@ def main():
                                       prefix=f"boundary-p{geometry[0]}")
                 for width in (64, 512)
                 for geometry in ((1, 1, 1), (128, 1, 1), (257, 3, 3))]}
+        elif options.probe == "dma":
+            coverage = {"dma": [dma_checks.run(execution, width=width)
+                                for width in (64, 512)]}
         else:
             coverage = parser_checks.run(execution)
             coverage.update(alu_checks.run(execution, widths=(64,), seeds=(17,),
@@ -84,6 +88,7 @@ def main():
             coverage["legacy_mutations"] = mutation_checks.run_legacy(execution)
             coverage["qos"] = qos_checks.run(execution)
             coverage.update(mutation_checks.run_packet(execution))
+            coverage["dma"] = [dma_checks.run(execution, width=width) for width in (64, 512)]
     except (AssertionError, RuntimeError, FileNotFoundError) as error:
         receipt = execution.finish("failed", str(error), repair_of=options.repair_of)
         print(f"FAILED {error}\nReceipt: {receipt}", flush=True)
