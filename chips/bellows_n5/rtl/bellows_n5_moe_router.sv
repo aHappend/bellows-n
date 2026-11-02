@@ -201,12 +201,16 @@ module bellows_n5_moe_router #(
         end
     endfunction
     wire [511:0] normalized_rx=normalized(rx_cmd_meta);
-    wire [31:0] rx_token={rx_cmd_meta[8*20 +:8],rx_cmd_meta[8*21 +:8],
-                         rx_cmd_meta[8*22 +:8],rx_cmd_meta[8*23 +:8]};
-    wire [15:0] rx_expert={rx_cmd_meta[8*24 +:8],rx_cmd_meta[8*25 +:8]};
-    wire [7:0] rx_rank=rx_cmd_meta[8*26 +:8];
-    wire [15:0] rx_elems={rx_cmd_meta[8*28 +:8],rx_cmd_meta[8*29 +:8]};
-    wire [15:0] rx_weight={rx_cmd_meta[8*48 +:8],rx_cmd_meta[8*49 +:8]};
+    reg [511:0] rx_meta_hold, rx_normal_hold, rx_lookup_meta;
+    reg [2:0] rx_qp_hold, rx_lookup_qp;
+    reg [4:0] rx_cursor, rx_free_slot;
+    reg rx_free_seen;
+    wire [31:0] rx_token={rx_meta_hold[8*20 +:8],rx_meta_hold[8*21 +:8],
+                         rx_meta_hold[8*22 +:8],rx_meta_hold[8*23 +:8]};
+    wire [15:0] rx_expert={rx_meta_hold[8*24 +:8],rx_meta_hold[8*25 +:8]};
+    wire [7:0] rx_rank=rx_meta_hold[8*26 +:8];
+    wire [15:0] rx_elems={rx_meta_hold[8*28 +:8],rx_meta_hold[8*29 +:8]};
+    wire [15:0] rx_weight={rx_meta_hold[8*48 +:8],rx_meta_hold[8*49 +:8]};
     wire [15:0] rx_element_offset={rx_cmd_meta[8*30 +:8],rx_cmd_meta[8*31 +:8]};
     wire [15:0] rx_byte_offset=(rx_cmd_meta[8*6 +:8]==1) ?
                               rx_element_offset<<1 : rx_element_offset;
@@ -214,24 +218,19 @@ module bellows_n5_moe_router #(
     reg rx_match, rx_free, rx_semantic;
     reg [4:0] rx_job;
     reg [2:0] rx_slot;
-    reg all_returns;
-    integer s, r;
+    integer s;
     always @* begin
         rx_match=0; rx_free=0; rx_semantic=0; rx_job=0; rx_slot=0;
-        if (rx_cmd_meta[8*5 +:8]==2) begin
-            for (s=0;s<JOBS;s=s+1)
-                if (job_active[s] && job_qp[s]==rx_cmd_qp &&
-                    job_meta[s][8*20 +:32]==rx_cmd_meta[8*20 +:32] &&
-                    job_meta[s][8*24 +:24]==rx_cmd_meta[8*24 +:24]) begin
-                    rx_match=1; rx_job=s;
-                end
+        if (rx_meta_hold[8*5 +:8]==2) begin
+            rx_job=rx_cursor;
+            rx_match=job_active[rx_cursor] && rx_lookup_qp==rx_qp_hold &&
+                rx_lookup_meta[8*20 +:32]==rx_meta_hold[8*20 +:32] &&
+                rx_lookup_meta[8*24 +:24]==rx_meta_hold[8*24 +:24];
+            rx_free=!job_active[rx_cursor];
             if (rx_match) begin
-                if (job_meta[rx_job]!=normalized_rx ||
-                    job_fragments[rx_job][rx_fragment] ||
+                if (rx_lookup_meta!=rx_normal_hold ||
+                    job_fragments[rx_job][rx_frag_hold] ||
                     job_presented[rx_job]) rx_semantic=1;
-            end else begin
-                for (s=0;s<JOBS;s=s+1)
-                    if (!job_active[s] && !rx_free) begin rx_free=1; rx_job=s; end
             end
         end else begin
             for (s=0;s<TOKENS;s=s+1)
@@ -240,24 +239,23 @@ module bellows_n5_moe_router #(
                 end
             if (!rx_match) rx_semantic=1;
             else if (rx_rank>=count_k[rx_slot] || rx_rank>=MAX_K) rx_semantic=1;
-            else if (destinations[rx_slot][3*rx_rank +:3]!=rx_cmd_qp ||
+            else if (destinations[rx_slot][3*rx_rank +:3]!=rx_qp_hold ||
                 ids[rx_slot][16*rx_rank +:16]!=rx_expert ||
                 weights[rx_slot][16*rx_rank +:16]!=rx_weight ||
-                count_k[rx_slot]!=rx_cmd_meta[8*27 +:8] ||
+                count_k[rx_slot]!=rx_meta_hold[8*27 +:8] ||
                 elems[rx_slot]!=rx_elems ||
-                formats[rx_slot]!=rx_cmd_meta[8*6 +:8] ||
-                returned[rx_slot][2*rx_rank+rx_fragment]) rx_semantic=1;
+                formats[rx_slot]!=rx_meta_hold[8*6 +:8] ||
+                returned[rx_slot][2*rx_rank+rx_frag_hold]) rx_semantic=1;
         end
     end
-    localparam RX_IDLE=0, RX_PAYLOAD=1, RX_DONE=2;
-    reg [1:0] rx_state;
+    localparam RX_IDLE=0, RX_PAYLOAD=1, RX_DONE=2, RX_FETCH=3, RX_CHECK=4;
+    reg [2:0] rx_state;
     reg rx_ok, rx_dispatch, rx_frag_hold;
     reg [4:0] rx_job_hold;
     reg [2:0] rx_slot_hold;
     reg [1:0] rx_rank_hold;
     reg [9:0] rx_offset;
-    assign rx_cmd_ready=rst_n && rx_state==RX_IDLE &&
-        (rx_cmd_meta[8*5 +:8]!=2 || rx_match || rx_free);
+    assign rx_cmd_ready=rst_n && rx_state==RX_IDLE;
     assign rx_payload_tready=rst_n && rx_state==RX_PAYLOAD;
     assign rx_done_valid=rst_n && rx_state==RX_DONE;
     assign rx_done_ok=rst_n && rx_ok;
@@ -271,46 +269,33 @@ module bellows_n5_moe_router #(
     reg [4:0] tjob, qjob;
     reg [5:0] return_cursor, request_cursor;
     reg [9:0] doffset, toffset, qoffset, dlimit, tlimit;
-    reg [511:0] dmeta, tmeta;
+    reg [511:0] dmeta, tmeta, tbase, qmeta;
     reg [DATA_WIDTH-1:0] ddata, tdata, qdata;
     reg [B-1:0] dkeep, tkeep, qkeep;
     reg d_found, t_found, q_found;
     reg [2:0] d_choice;
     reg [4:0] t_choice, q_choice;
-    integer scan, candidate;
     always @* begin
-        d_found=0; t_found=0; q_found=0; d_choice=0; t_choice=0; q_choice=0;
-        for (scan=0;scan<TOKENS;scan=scan+1) begin
-            candidate=dispatch_cursor+scan;
-            if (candidate>=TOKENS) candidate=candidate-TOKENS;
-            if (!d_found && active[candidate] && activation_ready[candidate] &&
-                !dispatched[candidate]) begin d_found=1; d_choice=candidate; end
-        end
-        for (scan=0;scan<JOBS;scan=scan+1) begin
-            candidate=return_cursor+scan;
-            if (candidate>=JOBS) candidate=candidate-JOBS;
-            if (!t_found && job_active[candidate] && job_response[candidate]) begin
-                t_found=1; t_choice=candidate;
-            end
-            candidate=request_cursor+scan;
-            if (candidate>=JOBS) candidate=candidate-JOBS;
-            if (!q_found && job_active[candidate] && !job_presented[candidate] &&
-                (job_fragments[candidate]==3 ||
-                 (job_fragments[candidate][0] &&
-                  {job_meta[candidate][8*32 +:8],job_meta[candidate][8*33 +:8]}<=256))) begin
-                q_found=1; q_choice=candidate;
-            end
-        end
+        d_choice=dispatch_cursor;
+        d_found=active[dispatch_cursor] && activation_ready[dispatch_cursor] &&
+                !dispatched[dispatch_cursor];
+        t_choice=return_cursor[4:0];
+        t_found=job_active[return_cursor] && job_response[return_cursor];
+        q_choice=request_cursor[4:0];
+        q_found=job_active[request_cursor] && !job_presented[request_cursor] &&
+            (job_fragments[request_cursor]==3 ||
+             (job_fragments[request_cursor][0] &&
+              {job_meta[request_cursor][8*32 +:8],job_meta[request_cursor][8*33 +:8]}<=256));
     end
     wire [9:0] dtotal=formats[dslot] ? {elems[dslot],1'b0} : {1'b0,elems[dslot]};
-    wire [9:0] ttotal={job_meta[tjob][8*32 +:8],job_meta[tjob][8*33 +:8]};
-    wire [9:0] qtotal={job_meta[qjob][8*32 +:8],job_meta[qjob][8*33 +:8]};
+    wire [9:0] ttotal={tbase[8*32 +:8],tbase[8*33 +:8]};
+    wire [9:0] qtotal={qmeta[8*32 +:8],qmeta[8*33 +:8]};
     wire [9:0] dpacket_bytes=dlimit-(doffset & 10'h300);
     wire [9:0] tpacket_bytes=tlimit-(toffset & 10'h300);
     reg [511:0] dispatch_header, return_header;
     reg [15:0] fragment_elements;
     always @* begin
-        dispatch_header=0; return_header=job_meta[tjob]; fragment_elements=0;
+        dispatch_header=0; return_header=tbase; fragment_elements=0;
         dispatch_header[0 +:32]=32'h21355846;
         dispatch_header[8*4 +:8]=1; dispatch_header[8*5 +:8]=2;
         dispatch_header[8*6 +:8]={7'b0,formats[dslot]};
@@ -339,10 +324,10 @@ module bellows_n5_moe_router #(
         dispatch_header[8*48 +:8]=weights[dslot][16*drank+8 +:8];
         dispatch_header[8*49 +:8]=weights[dslot][16*drank +:8];
         return_header[8*5 +:8]=3;
-        return_header[8*8 +:24]=job_meta[tjob][8*16 +:24];
-        return_header[8*16 +:24]=job_meta[tjob][8*8 +:24];
+        return_header[8*8 +:24]=tbase[8*16 +:24];
+        return_header[8*16 +:24]=tbase[8*8 +:24];
         return_header[8*7 +:8]=(tlimit==ttotal)?1:0;
-        fragment_elements=(job_meta[tjob][8*6 +:8]==1) ? (toffset>>1) : toffset;
+        fragment_elements=(tbase[8*6 +:8]==1) ? (toffset>>1) : toffset;
         return_header[8*30 +:8]=fragment_elements[15:8];
         return_header[8*31 +:8]=fragment_elements[7:0];
         return_header[8*32 +:8]={6'b0,tpacket_bytes[9:8]};
@@ -364,14 +349,14 @@ module bellows_n5_moe_router #(
     assign return_payload_tlast=return_payload_tvalid && toffset+B>=tlimit;
     assign x5_expert_req_valid=rst_n && qstate==P_COMMAND;
     assign x5_expert_req_qp=rst_n ? job_qp[qjob] : 3'b0;
-    assign x5_expert_req_meta=rst_n ? job_meta[qjob] : 512'b0;
+    assign x5_expert_req_meta=rst_n ? qmeta : 512'b0;
     assign x5_expert_req_tvalid=rst_n && qstate==P_SEND;
     assign x5_expert_req_tdata=x5_expert_req_tvalid ? qdata : {DATA_WIDTH{1'b0}};
     assign x5_expert_req_tkeep=x5_expert_req_tvalid ? qkeep : {B{1'b0}};
     assign x5_expert_req_tlast=x5_expert_req_tvalid && qoffset+B>=qtotal;
 
-    localparam R_IDLE=0, R_PAYLOAD=1, R_EVENT=2;
-    reg [1:0] rstate;
+    localparam R_IDLE=0, R_PAYLOAD=1, R_EVENT=2, R_FETCH=3, R_CHECK=4;
+    reg [2:0] rstate;
     reg [4:0] rjob;
     reg [16:0] response_offset;
     reg [9:0] response_bytes;
@@ -380,17 +365,12 @@ module bellows_n5_moe_router #(
     reg [2:0] response_qp;
     reg [31:0] response_token;
     reg [23:0] response_psn;
-    reg response_match;
-    reg [4:0] response_choice;
-    integer rs;
-    always @* begin
-        response_match=0; response_choice=0;
-        for (rs=0;rs<JOBS;rs=rs+1)
-            if (job_active[rs] && job_presented[rs] && !job_response[rs] &&
-                job_qp[rs]==x5_expert_rsp_qp && job_meta[rs]==x5_expert_rsp_meta) begin
-                response_match=1; response_choice=rs;
-            end
-    end
+    reg [511:0] response_meta, response_lookup_meta;
+    reg [2:0] response_lookup_qp;
+    reg [4:0] response_cursor;
+    wire response_match=job_active[response_cursor] && job_presented[response_cursor] &&
+        !job_response[response_cursor] && response_lookup_qp==response_qp &&
+        response_lookup_meta==response_meta;
     wire [17:0] response_end={1'b0,response_offset}+response_beat_bytes;
     wire response_violation=response_keep_bad || response_end>{8'b0,response_bytes} ||
         (x5_expert_rsp_tlast && response_end!={8'b0,response_bytes}) ||
@@ -450,51 +430,61 @@ module bellows_n5_moe_router #(
     );
     wire [15:0] sample_addr=((cslot*MAX_K+comb_rank)<<9) +
         (formats[cslot] ? ({8'b0,comb_elem}<<1) : {8'b0,comb_elem});
+    wire [15:0] activation_waddr=({13'b0,aslot}<<9)+activation_offset[15:0];
+    wire [15:0] activation_raddr=({13'b0,dslot}<<9)+doffset;
+    wire [15:0] return_waddr=((rx_slot_hold*MAX_K+rx_rank_hold)<<9)+rx_offset;
+    wire [15:0] job_waddr=({11'b0,rx_job_hold}<<9)+rx_offset;
+    wire [15:0] job_raddr=({11'b0,qjob}<<9)+qoffset;
+    wire [15:0] response_waddr=({11'b0,rjob}<<9)+response_offset[15:0];
+    wire [15:0] response_raddr=({11'b0,tjob}<<9)+toffset;
     bellows_n5_payload_ram #(.DATA_WIDTH(DATA_WIDTH),.BYTES(TOKENS*512)) activation_ram (
         .clk(clk),.we(x5_token_tvalid && x5_token_tready && !activation_bad &&
                     !activation_violation),
-        .waddr(({13'b0,aslot}<<9)+activation_offset[15:0]),
+        .waddr(activation_waddr),
         .wdata(x5_token_tdata),.wkeep(x5_token_tkeep),
-        .re(dstate==P_FETCH),.raddr(({13'b0,dslot}<<9)+doffset),
+        .re(dstate==P_FETCH),.raddr(activation_raddr),
         .rdata(activation_q)
     );
     bellows_n5_payload_ram #(.DATA_WIDTH(DATA_WIDTH),.BYTES(TOKENS*MAX_K*512)) return_ram (
         .clk(clk),.we(rx_store && !rx_dispatch),
-        .waddr(((rx_slot_hold*MAX_K+rx_rank_hold)<<9)+rx_offset),
+        .waddr(return_waddr),
         .wdata(rx_payload_tdata),.wkeep(rx_payload_tkeep),
         .re(comb_read_valid && !sample_pending),.raddr(sample_addr),.rdata(return_q)
     );
     bellows_n5_payload_ram #(.DATA_WIDTH(DATA_WIDTH),.BYTES(JOBS*512)) job_ram (
         .clk(clk),.we(rx_store && rx_dispatch),
-        .waddr(({11'b0,rx_job_hold}<<9)+rx_offset),
+        .waddr(job_waddr),
         .wdata(rx_payload_tdata),.wkeep(rx_payload_tkeep),
-        .re(qstate==P_FETCH),.raddr(({11'b0,qjob}<<9)+qoffset),.rdata(job_q)
+        .re(qstate==P_FETCH),.raddr(job_raddr),.rdata(job_q)
     );
     bellows_n5_payload_ram #(.DATA_WIDTH(DATA_WIDTH),.BYTES(JOBS*512)) response_ram (
         .clk(clk),.we(x5_expert_rsp_tvalid && x5_expert_rsp_tready &&
                       !response_bad && !response_violation),
-        .waddr(({11'b0,rjob}<<9)+response_offset[15:0]),
+        .waddr(response_waddr),
         .wdata(x5_expert_rsp_tdata),.wkeep(x5_expert_rsp_tkeep),
-        .re(tstate==P_FETCH),.raddr(({11'b0,tjob}<<9)+toffset),.rdata(response_q)
+        .re(tstate==P_FETCH),.raddr(response_raddr),.rdata(response_q)
     );
     assign x5_combine_tvalid=rst_n && combine_valid;
     assign x5_combine_tdata=x5_combine_tvalid ? combine_data : {DATA_WIDTH{1'b0}};
     assign x5_combine_tkeep=x5_combine_tvalid ? combine_keep : {B{1'b0}};
     assign x5_combine_tlast=x5_combine_tvalid && combine_last;
     assign x5_combine_token_id=rst_n ? token_id[cslot] : 32'b0;
-    reg cpl_pending, cpl_reject;
-    reg [2:0] cpl_slot;
+    reg cpl_pending, cpl_reject, cpl_turn;
+    reg [2:0] cpl_slot, cpl_cursor;
     reg [31:0] cpl_id;
     reg [3:0] cpl_status;
     reg completed_found;
     reg [2:0] completed_slot;
-    integer cp;
+    integer cp, cpl_candidate;
     always @* begin
-        completed_found=0; completed_slot=0;
-        for (cp=0;cp<TOKENS;cp=cp+1)
-            if (completed[cp] && !completed_found) begin
-                completed_found=1; completed_slot=cp;
+        completed_found=0; completed_slot=0; cpl_candidate=0;
+        for (cp=0;cp<TOKENS;cp=cp+1) begin
+            cpl_candidate=cpl_cursor+cp;
+            if (cpl_candidate>=TOKENS) cpl_candidate=cpl_candidate-TOKENS;
+            if (completed[cpl_candidate] && !completed_found) begin
+                completed_found=1; completed_slot=cpl_candidate;
             end
+        end
     end
     assign x5_moe_cpl_valid=rst_n && cpl_pending;
     assign x5_moe_cpl_token_id=rst_n ? cpl_id : 32'b0;
@@ -513,18 +503,24 @@ module bellows_n5_moe_router #(
             activation_offset<=0; activation_bad<=0; rejected_pending<=0; rejected_id<=0;
             rx_state<=RX_IDLE; rx_ok<=0; rx_dispatch<=0; rx_frag_hold<=0;
             rx_job_hold<=0; rx_slot_hold<=0; rx_rank_hold<=0; rx_offset<=0;
+            rx_meta_hold<=0; rx_normal_hold<=0; rx_lookup_meta<=0; rx_lookup_qp<=0;
+            rx_qp_hold<=0; rx_cursor<=0; rx_free_slot<=0; rx_free_seen<=0;
             dstate<=P_IDLE; tstate<=P_IDLE; qstate<=P_IDLE;
             dslot<=0; dispatch_cursor<=0; drank<=0; tjob<=0; qjob<=0;
             return_cursor<=0; request_cursor<=0; doffset<=0; toffset<=0; qoffset<=0;
-            dlimit<=0; tlimit<=0; dmeta<=0; tmeta<=0; ddata<=0; tdata<=0; qdata<=0;
+            dlimit<=0; tlimit<=0; dmeta<=0; tmeta<=0; tbase<=0; qmeta<=0;
+            ddata<=0; tdata<=0; qdata<=0;
             dkeep<=0; tkeep<=0; qkeep<=0;
             rstate<=R_IDLE; rjob<=0; response_offset<=0; response_bytes<=0;
             response_bad<=0; response_identity<=0; response_status<=0;
             response_qp<=0; response_token<=0; response_psn<=0;
+            response_meta<=0; response_lookup_meta<=0; response_lookup_qp<=0;
+            response_cursor<=0;
             cstate<=C_IDLE; cslot<=0; combine_cursor<=0; sample_pending<=0;
             sample_lane<=0; combine_data<=0; combine_keep<=0; combine_lane<=0;
             combine_valid<=0; combine_last<=0;
-            cpl_pending<=0; cpl_reject<=0; cpl_slot<=0; cpl_id<=0; cpl_status<=0;
+            cpl_pending<=0; cpl_reject<=0; cpl_turn<=0; cpl_slot<=0; cpl_cursor<=0;
+            cpl_id<=0; cpl_status<=0;
             for (n=0;n<EXPERTS;n=n+1) route_qp[n]<=0;
             for (n=0;n<TOKENS;n=n+1) begin
                 token_id[n]<=0; elems[n]<=0; count_k[n]<=0; formats[n]<=0;
@@ -578,14 +574,37 @@ module bellows_n5_moe_router #(
                 end
             end
             if (rx_cmd_valid && rx_cmd_ready) begin
-                rx_ok<=!rx_semantic; rx_dispatch<=rx_cmd_meta[8*5 +:8]==2;
-                rx_frag_hold<=rx_fragment; rx_job_hold<=rx_job;
-                rx_slot_hold<=rx_slot; rx_rank_hold<=rx_rank[1:0]; rx_offset<=rx_byte_offset[9:0];
-                rx_state<=RX_PAYLOAD;
-                if (rx_cmd_meta[8*5 +:8]==2 && !rx_semantic && !rx_match) begin
-                    job_active[rx_job]<=1; job_presented[rx_job]<=0; job_response[rx_job]<=0;
-                    job_meta[rx_job]<=normalized_rx; job_qp[rx_job]<=rx_cmd_qp;
-                    job_fragments[rx_job]<=0;
+                rx_meta_hold<=rx_cmd_meta; rx_normal_hold<=normalized_rx;
+                rx_qp_hold<=rx_cmd_qp; rx_cursor<=0; rx_free_seen<=0;
+                rx_dispatch<=rx_cmd_meta[8*5 +:8]==2;
+                rx_frag_hold<=rx_fragment; rx_offset<=rx_byte_offset[9:0];
+                rx_state<=RX_FETCH;
+            end
+            if (rx_state==RX_FETCH) begin
+                rx_lookup_meta<=job_meta[rx_cursor]; rx_lookup_qp<=job_qp[rx_cursor];
+                rx_state<=RX_CHECK;
+            end
+            if (rx_state==RX_CHECK) begin
+                if (!rx_dispatch || rx_match) begin
+                    rx_ok<=!rx_semantic; rx_job_hold<=rx_job;
+                    rx_slot_hold<=rx_slot; rx_rank_hold<=rx_rank[1:0]; rx_state<=RX_PAYLOAD;
+                end else if (rx_cursor==JOBS-1) begin
+                    if (rx_free_seen || rx_free) begin
+                        rx_job_hold<=rx_free_seen ? rx_free_slot : rx_cursor;
+                        rx_ok<=1; rx_state<=RX_PAYLOAD;
+                        if (rx_free_seen) begin
+                            job_active[rx_free_slot]<=1; job_presented[rx_free_slot]<=0;
+                            job_response[rx_free_slot]<=0; job_meta[rx_free_slot]<=rx_normal_hold;
+                            job_qp[rx_free_slot]<=rx_qp_hold; job_fragments[rx_free_slot]<=0;
+                        end else begin
+                            job_active[rx_cursor]<=1; job_presented[rx_cursor]<=0;
+                            job_response[rx_cursor]<=0; job_meta[rx_cursor]<=rx_normal_hold;
+                            job_qp[rx_cursor]<=rx_qp_hold; job_fragments[rx_cursor]<=0;
+                        end
+                    end else begin rx_cursor<=0; rx_free_seen<=0; rx_state<=RX_FETCH; end
+                end else begin
+                    if (rx_free && !rx_free_seen) begin rx_free_seen<=1; rx_free_slot<=rx_cursor; end
+                    rx_cursor<=rx_cursor+1'b1; rx_state<=RX_FETCH;
                 end
             end
             if (rx_payload_tvalid && rx_payload_tready) begin
@@ -605,7 +624,7 @@ module bellows_n5_moe_router #(
                     dslot<=d_choice; drank<=0; doffset<=0; dstate<=P_PREPARE;
                     dlimit<=(formats[d_choice] && elems[d_choice]>128) ? 256 :
                         (formats[d_choice] ? {elems[d_choice],1'b0} : {1'b0,elems[d_choice]});
-                end
+                end else dispatch_cursor<=(dispatch_cursor==TOKENS-1)?0:dispatch_cursor+1'b1;
                 P_PREPARE: begin dmeta<=dispatch_header; dstate<=P_COMMAND; end
                 P_COMMAND: if (dispatch_cmd_ready) dstate<=P_FETCH;
                 P_FETCH: dstate<=P_CAPTURE;
@@ -636,9 +655,10 @@ module bellows_n5_moe_router #(
             case (tstate)
                 P_IDLE: if (t_found) begin
                     tjob<=t_choice; toffset<=0; tstate<=P_PREPARE;
+                    tbase<=job_meta[t_choice];
                     tlimit<=({job_meta[t_choice][8*32 +:8],job_meta[t_choice][8*33 +:8]}>256) ?
                         256 : {job_meta[t_choice][8*32 +:8],job_meta[t_choice][8*33 +:8]};
-                end
+                end else return_cursor<=(return_cursor==JOBS-1)?0:return_cursor+1'b1;
                 P_PREPARE: begin tmeta<=return_header; tstate<=P_COMMAND; end
                 P_COMMAND: if (return_cmd_ready) tstate<=P_FETCH;
                 P_FETCH: tstate<=P_CAPTURE;
@@ -664,7 +684,9 @@ module bellows_n5_moe_router #(
                 default: tstate<=P_IDLE;
             endcase
             case (qstate)
-                P_IDLE: if (q_found) begin qjob<=q_choice; qoffset<=0; qstate<=P_COMMAND; end
+                P_IDLE: if (q_found) begin qjob<=q_choice; qoffset<=0; qstate<=P_PREPARE; end
+                    else request_cursor<=(request_cursor==JOBS-1)?0:request_cursor+1'b1;
+                P_PREPARE: begin qmeta<=job_meta[qjob]; qstate<=P_COMMAND; end
                 P_COMMAND: if (x5_expert_req_ready) qstate<=P_FETCH;
                 P_FETCH: qstate<=P_CAPTURE;
                 P_CAPTURE: begin
@@ -685,16 +707,24 @@ module bellows_n5_moe_router #(
             endcase
             case (rstate)
                 R_IDLE: if (x5_expert_rsp_valid && x5_expert_rsp_ready) begin
-                    response_identity<=response_match; response_offset<=0; response_bad<=0;
-                    if (!response_match) begin response_status<=7; rstate<=R_EVENT; end
-                    else begin
-                        rjob<=response_choice; response_qp<=x5_expert_rsp_qp;
-                        response_token<={x5_expert_rsp_meta[8*20 +:8],x5_expert_rsp_meta[8*21 +:8],
-                            x5_expert_rsp_meta[8*22 +:8],x5_expert_rsp_meta[8*23 +:8]};
+                    response_identity<=0; response_offset<=0; response_bad<=0;
+                    response_meta<=x5_expert_rsp_meta; response_qp<=x5_expert_rsp_qp;
+                    response_cursor<=0; rstate<=R_FETCH;
+                end
+                R_FETCH: begin
+                    response_lookup_meta<=job_meta[response_cursor];
+                    response_lookup_qp<=job_qp[response_cursor]; rstate<=R_CHECK;
+                end
+                R_CHECK: begin
+                    if (response_match) begin
+                        rjob<=response_cursor; response_identity<=1;
+                        response_token<={response_meta[8*20 +:8],response_meta[8*21 +:8],
+                            response_meta[8*22 +:8],response_meta[8*23 +:8]};
                         response_psn<=0;
-                        response_bytes<={x5_expert_rsp_meta[8*32 +:8],x5_expert_rsp_meta[8*33 +:8]};
+                        response_bytes<={response_meta[8*32 +:8],response_meta[8*33 +:8]};
                         rstate<=R_PAYLOAD;
-                    end
+                    end else if (response_cursor==JOBS-1) begin response_status<=7; rstate<=R_EVENT; end
+                    else begin response_cursor<=response_cursor+1'b1; rstate<=R_FETCH; end
                 end
                 R_PAYLOAD: if (x5_expert_rsp_tvalid) begin
                     if (response_violation) response_bad<=1;
@@ -736,18 +766,20 @@ module bellows_n5_moe_router #(
                 combine_valid<=0; combine_data<=0; combine_keep<=0; combine_lane<=0;
             end
             if (!cpl_pending) begin
-                if (rejected_pending) begin
+                if (rejected_pending && (!completed_found || cpl_turn)) begin
                     cpl_pending<=1; cpl_reject<=1; cpl_id<=rejected_id; cpl_status<=7;
-                    rejected_pending<=0;
+                    rejected_pending<=0; cpl_turn<=0;
                 end else if (completed_found) begin
                     cpl_pending<=1; cpl_reject<=0; cpl_slot<=completed_slot;
                     cpl_id<=token_id[completed_slot]; cpl_status<=completion_status[completed_slot];
+                    cpl_turn<=1;
                 end
             end else if (x5_moe_cpl_ready) begin
                 cpl_pending<=0;
                 if (!cpl_reject) begin
                     active[cpl_slot]<=0; completed[cpl_slot]<=0; combining[cpl_slot]<=0;
                     activation_ready[cpl_slot]<=0; dispatched[cpl_slot]<=0;
+                    cpl_cursor<=(cpl_slot==TOKENS-1)?0:cpl_slot+1'b1;
                 end
             end
         end

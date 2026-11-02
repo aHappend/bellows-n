@@ -1,6 +1,7 @@
 `default_nettype none
 module bellows_n5_engine #(
-    parameter integer DATA_WIDTH=512, QPS=8, EXPERTS=8, MAX_K=4,
+    parameter integer DATA_WIDTH=512, MAX_PACKET_BYTES=9216, MAX_SG=16,
+    parameter integer QPS=8, EXPERTS=8, MAX_K=4,
     parameter integer TOKENS=4, MAX_TOKEN_ELEMS=256
 ) (
     input wire clk, rst_n,

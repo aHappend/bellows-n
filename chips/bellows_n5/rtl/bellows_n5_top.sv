@@ -285,7 +285,8 @@ module bellows_n5_top #(
             .ack_psn(ack_psn),.coll_done_valid(coll_done_valid),.coll_done_ready(coll_done_ready),
             .coll_done_job(coll_done_job),.coll_done_bytes(coll_done_bytes)
         );
-        bellows_n5_engine #(.DATA_WIDTH(DATA_WIDTH),.QPS(QPS),.EXPERTS(EXPERTS),
+        bellows_n5_engine #(.DATA_WIDTH(DATA_WIDTH),.MAX_PACKET_BYTES(MAX_PACKET_BYTES),
+            .MAX_SG(MAX_SG),.QPS(QPS),.EXPERTS(EXPERTS),
             .MAX_K(MAX_K),.TOKENS(TOKENS),.MAX_TOKEN_ELEMS(MAX_TOKEN_ELEMS)) x5_core (
             .clk(clk),.rst_n(rst_n),
             .x5_rx_tvalid(x5_rx_tvalid),.x5_rx_tready(x5_rx_tready),

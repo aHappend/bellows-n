@@ -10,10 +10,12 @@ and hierarchy. `GENERATIONAL_HANDOFF.md` reports no numerical parent Quartus
 timing or PPA, and only a connectivity-level physical bridge observation.
 Neither constitutes X5 acceptance.
 
-Implementation is in progress. The parent copies and X5 Top-K, reorder,
-BF16 multiply/combine, QP table, SACK and packet RX/TX modules are saved.
-The integrated MoE router, X5 engine and X5 top are not yet implemented.
-These leaves are not a completed or verified subsystem.
+The RTL now includes the integrated MoE router, X5 engine and compatibility
+top, in addition to the parent copies and X5 foundation modules. This is a
+design handoff for independent verification, not a functional, synthesis,
+timing or physical acceptance result. Verification sources remain independently
+owned; the commands below define required future checks rather than claimed
+results.
 
 Top: `bellows_n5_top`. One `clk`, active-low asynchronous `rst_n`.
 Target: Intel Arria 10 GX 10AX115N2F45E1SG, period <=10.0 ns.
@@ -62,6 +64,8 @@ State and outputs described below are **post-edge**, after nonblocking updates.
 | Reorder successful commit | Set one physical bit at Ec. Retire at most one bit at each subsequent edge; no simultaneous scan/retire. |
 | Cancelled commit | Do not modify bitmap/base. Snapshot status is 3. |
 | Reset versus memory write | Reset invalidates ownership; stale RAM bytes cannot become observable. No bulk RAM reset is required. |
+| Same-word RAM read/write | Synchronous reads sample the pre-write word. Ownership scheduling prevents exposing an uncommitted collision. |
+| Allocation versus release | A slot is allocatable only after its prior ownership release edge, never speculatively on that edge. |
 
 Top-K captures at E0. Each rank scans exactly EXPERTS ascending candidates on
 subsequent edges, followed by a separate rank-commit edge. out_valid first
@@ -267,3 +271,54 @@ explicitly supplied read-only `furnace_x4_reference/rtl/*.sv`. Runtime metadata,
 compiler trees and account/session state are not deliverable sources. Fresh
 receipts must record content hashes of this manifest and actual artifacts;
 there is currently no accepted X5 result to cite.
+
+The 24 inherited RTL filenames are enumerated in `GENERATIONAL_HANDOFF.md`;
+their deliverable copies retain the supplied parent contents. The additional
+design sources are:
+
+| File in rtl/ | Function |
+|---|---|
+| bellows_n5_top.sv | Diagnostic-safe public top and independent legacy/X5 integration |
+| bellows_n5_engine.sv | Receive decisions, direct placement, WRITE buffering, event and packet arbitration |
+| bellows_n5_qp_table.sv | Independent endpoints, region validation and transmit PSNs |
+| bellows_n5_packet_rx.sv | Complete-frame validation and protected packet delivery |
+| bellows_n5_packet_tx.sv | Canonical envelope, checksum, CRC and serialized frames |
+| bellows_n5_reorder.sv | Per-QP circular 256-bit commit tracker and immutable snapshots |
+| bellows_n5_sack.sv | Actual SACK header and bitmap payload generation |
+| bellows_n5_moe_router.sv | Token/job ownership, Top-K routing, reassembly and deterministic combine control |
+| bellows_n5_topk.sv | Signed score scan with ascending-ID tie handling |
+| bellows_n5_combine.sv | Ordered staged BF16 gate multiplication and addition |
+| bellows_n5_bf16_mul.sv | Eight-stage BF16 RNE multiplication |
+| bellows_n5_payload_ram.sv | Synchronous byte-lane payload RAM with independent ownership |
+
+## Integration and reproduction
+
+Compile the deliverable `rtl/*.sv` once with top `bellows_n5_top`; do not
+simultaneously compile the same-named read-only reference modules. A portable
+syntax-only invocation from the delivered root is:
+
+```
+iverilog -g2012 -t null -s bellows_n5_top rtl/*.sv
+```
+
+Assert `rst_n=0` before accepting traffic, then release it with the single
+clock running. Configure X5 QPs at `x5_idle`, accept each configuration response,
+and then enable expert routes referencing those enabled QPs. An application
+must handshake a command before its payload; invalid command completions do not
+authorize a payload. Hold every output consumer ready or provide finite stalls
+and honor retained metadata/payload independently on expert ports. External
+expert compute must echo the complete normalized request metadata and QP and
+return exactly the declared representation and element count.
+
+The legacy and X5 network interfaces are independent logical ports. Connect
+`x5_tx_*` to a fabric peer's `x5_rx_*` at frame boundaries; the fabric may
+reorder complete packets, not individual bytes within a packet. Direct-placement
+addresses are byte addresses, and `x5_mem_last` terminates a packet. An accepted
+WRITE completion reports local transmission only. Peer acknowledgements appear
+on `x5_peer_sack_*`; host or fabric retransmission policy is not implemented.
+
+The implementation uses only synthesizable integer RTL and inferred synchronous
+payload RAM. Tool versions for actual static diagnostics belong to their
+project-local advisory receipts. Functional simulation, independent numerical
+oracles, defect sensitivity, Yosys and native target gates remain Verifier/shared
+runtime work. The product PDF is authored only after independent acceptance.

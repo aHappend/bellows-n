@@ -39,7 +39,6 @@ module bellows_n5_packet_tx #(
         reg [8:0] frame_bytes, output_offset;
         reg [6:0] build_offset;
         reg [1:0] trailer_offset;
-        reg [6:0] lane;
         reg [DATA_WIDTH-1:0] output_data;
         reg [B-1:0] output_keep;
         reg [31:0] crc, trailer;
@@ -49,6 +48,7 @@ module bellows_n5_packet_tx #(
         reg [15:0] checksum;
         (* nomem2reg *) reg [7:0] frame [0:365];
         reg [7:0] frame_q;
+        reg [DATA_WIDTH-1:0] frame_word;
         wire [15:0] ip_length=16'd96+{7'b0,payload_bytes};
         wire [15:0] udp_length=16'd76+{7'b0,payload_bytes};
         wire [15:0] source_port=16'hc000+{14'b0,meta[8*15 +:2]};
@@ -117,7 +117,11 @@ module bellows_n5_packet_tx #(
             if (rst_n && state==TRAILER)
                 frame[106+payload_bytes+trailer_offset]<=trailer[8*trailer_offset +:8];
             if (state==CRC_FETCH) frame_q<=frame[106+crc_offset];
-            if (state==OUT_FETCH) frame_q<=frame[output_offset];
+            if (state==OUT_FETCH)
+                for (w=0;w<B;w=w+1)
+                    if (output_offset+w<frame_bytes)
+                        frame_word[8*w +:8]<=frame[output_offset+w];
+                    else frame_word[8*w +:8]<=0;
         end
         assign cmd_ready=rst_n && state==IDLE;
         assign payload_tready=rst_n && state==PAYLOAD;
@@ -134,7 +138,7 @@ module bellows_n5_packet_tx #(
                 state<=IDLE; qp<=0; meta<=0; source_mac<=0; dest_mac<=0;
                 source_ip<=0; dest_ip<=0; payload_bytes<=0; input_offset<=0;
                 crc_offset<=0; frame_bytes<=0; output_offset<=0; build_offset<=0;
-                trailer_offset<=0; lane<=0; output_data<=0; output_keep<=0;
+                trailer_offset<=0; output_data<=0; output_keep<=0;
                 crc<=0; trailer<=0; checksum_sum<=0; checksum<=0;
                 checksum_a<=0; checksum_b<=0; checksum_c<=0; checksum_d<=0;
                 checksum_ab<=0; checksum_cd<=0;
@@ -148,7 +152,7 @@ module bellows_n5_packet_tx #(
                     payload_bytes<={cmd_meta[8*32 +:8],cmd_meta[8*33 +:8]};
                     frame_bytes<=9'd110+{cmd_meta[8*32 +:8],cmd_meta[8*33 +:8]};
                     input_offset<=0; crc_offset<=0; output_offset<=0;
-                    build_offset<=0; trailer_offset<=0; lane<=0;
+                    build_offset<=0; trailer_offset<=0;
                     output_data<=0; output_keep<=0; crc<=32'hffffffff;
                     state<=PAYLOAD;
                 end
@@ -191,15 +195,17 @@ module bellows_n5_packet_tx #(
                 end
                 OUT_FETCH: state<=OUT_USE;
                 OUT_USE: begin
-                    output_data[8*lane +:8]<=frame_q; output_keep[lane]<=1;
-                    output_offset<=output_offset+1'b1;
-                    if (lane==B-1 || output_offset+9'd1==frame_bytes) state<=OUT_SEND;
-                    else begin lane<=lane+1'b1; state<=OUT_FETCH; end
+                    output_data<=frame_word;
+                    for (integer n=0;n<B;n=n+1)
+                        output_keep[n]<=output_offset+n<frame_bytes;
+                    if (output_offset+B>=frame_bytes) output_offset<=frame_bytes;
+                    else output_offset<=output_offset+B;
+                    state<=OUT_SEND;
                 end
                 OUT_SEND: if (tx_tready) begin
                     if (output_offset==frame_bytes) state<=IDLE;
                     else begin
-                        output_data<=0; output_keep<=0; lane<=0; state<=OUT_FETCH;
+                        output_data<=0; output_keep<=0; state<=OUT_FETCH;
                     end
                 end
                 default: state<=IDLE;
