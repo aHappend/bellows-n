@@ -388,10 +388,13 @@ def matrix(run, geometries=None, seeds=(17, 89, 203), token_count=32):
             directory.mkdir()
             tokens = stimulus(directory, geometry, seed, token_count)
             packets = packet_stimulus(directory, geometry, seed)
+            from legacy import stimulus as legacy_stimulus, validate as validate_legacy
+            legacy_expected = legacy_stimulus(directory)
             run.command([run.relative(executable), run.relative(directory), str(seed)])
             packet_counts = validate_packets(directory, packets)
             counts = validate(directory, geometry, tokens, token_count)
             counts.update(packet_counts)
+            counts.update(validate_legacy(directory, legacy_expected))
             result = dict(geometry=geometry, parameters=GEOMETRIES[geometry],
                           seed=seed, comparisons=counts)
             results.append(result)
