@@ -107,7 +107,8 @@ class Execution:
             "generated_sha256": {
                 relative(path, self.root): hashlib.sha256(path.read_bytes()).hexdigest()
                 for path in sorted(self.folder.rglob("*"))
-                if path.is_file() and path.suffix in (".sv", ".hex", ".json")
+                if path.is_file() and (path.suffix in (".sv", ".hex", ".json", ".ys")
+                                       or path.name == "commands.txt")
             },
         }
         (self.folder / "receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")

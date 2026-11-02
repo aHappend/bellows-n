@@ -112,6 +112,8 @@ integer due[0:LIMIT-1];
 integer count=0, head=0, tail=0, advances=0, cycles=0, compared=0;
 integer fd, n, seed, sent=0, streak_in=0, streak_out=0, max_in=0, max_out=0;
 integer random_state, reset_sample=0;
+integer group_start=0, key_in=-1, key_out=-1, full_in=0, full_out=0, key, k;
+integer max_full_in[0:8], max_full_out[0:8];
 reg [4095:0] filename;
 reg blocked=0;
 reg [W+B:0] held;
@@ -146,6 +148,7 @@ initial begin
     if (!$value$plusargs("vectors=%s",filename)) $fatal(1,"VECTORS_REQUIRED");
     if (!$value$plusargs("seed=%d",seed)) seed=17;
     random_state=seed;
+    for (k=0;k<9;k=k+1) begin max_full_in[k]=0; max_full_out[k]=0; end
     fd=$fopen(filename,"r");
     if (!fd) $fatal(1,"VECTOR_OPEN");
     while (!$feof(fd)) begin
@@ -162,7 +165,9 @@ initial begin
     rst_n=1;
     while (head<count) begin
         // The initial uninterrupted window measures input and output II=1.
-        out_ready=(sent<256 || (($random(random_state)&7)!=0));
+        if (sent<count && (sent==0 || fmt[sent]!=fmt[sent-1] || op[sent]!=op[sent-1]))
+            group_start=sent;
+        out_ready=(sent-group_start<144 || (($random(random_state)&7)!=0));
         if (sent<count) begin
             in_valid=1; in_a=a[sent]; in_b=b[sent]; in_keep=keep[sent];
             in_format=fmt[sent]; in_op=op[sent]; in_last=last[sent];
@@ -177,16 +182,26 @@ initial begin
         blocked=out_valid && !out_ready;
         held={out_data,out_keep,out_last};
         if (out_valid && out_ready) begin
+            key=fmt[head]*3+op[head];
+            full_out=(key==key_out && (&out_keep)) ? full_out+1 :
+                     (&out_keep) ? 1 : 0;
+            key_out=key;
+            if (full_out>max_full_out[key]) max_full_out[key]=full_out;
             head=head+1; compared=compared+1; streak_out=streak_out+1;
-        end else streak_out=0;
+        end else begin streak_out=0; full_out=0; end
         if (streak_out>max_out) max_out=streak_out;
         if (in_ready) begin
             advances=advances+1;
             if (in_valid) begin
+                key=in_format*3+in_op;
+                full_in=(key==key_in && (&in_keep)) ? full_in+1 :
+                        (&in_keep) ? 1 : 0;
+                key_in=key;
+                if (full_in>max_full_in[key]) max_full_in[key]=full_in;
                 due[tail]=advances+7;
                 tail=tail+1; sent=sent+1; streak_in=streak_in+1;
-            end else streak_in=0;
-        end else streak_in=0;
+            end else begin streak_in=0; full_in=0; end
+        end else begin streak_in=0; full_in=0; end
         if (streak_in>max_in) max_in=streak_in;
         #1;
         observe();
@@ -200,6 +215,13 @@ initial begin
     end
     if (compared!=count || sent!=count) $fatal(1,"ALU_CONSERVATION");
     if (count>=256 && (max_in<128 || max_out<128)) $fatal(1,"ALU_LINE_RATE");
+    if (count>=256) for (k=0;k<9;k=k+1) begin
+        if (max_full_in[k]<128 || max_full_out[k]<128)
+            $fatal(1,"ALU_COMBINATION_LINE_RATE combination=%0d input=%0d output=%0d",
+                   k,max_full_in[k],max_full_out[k]);
+        $display("THROUGHPUT combination=%0d full_input_burst=%0d full_output_burst=%0d",
+                 k,max_full_in[k],max_full_out[k]);
+    end
     $display("SUMMARY beats=%0d compared=%0d cycles=%0d max_input_burst=%0d max_output_burst=%0d",
              count,compared,cycles,max_in,max_out);
     $finish;
