@@ -50,6 +50,7 @@ class Execution:
         self.hashes = inventory(self.root)
         self.records = []
         self.started = utc()
+        self.invocation = ["python3", relative(Path(sys.argv[0]), ROOT), *sys.argv[1:]]
         self.deadline = time.monotonic() + 2700
         self.timed_out = False
 
@@ -143,7 +144,7 @@ class Execution:
                     if path.is_file() and path.suffix in (".o", ".a", ".gch", ".d"):
                         path.unlink()
         receipt = {
-            "argv": ["python3", relative(Path(sys.argv[0]), ROOT), *sys.argv[1:]],
+            "argv": self.invocation,
             "cwd": ".", "start": self.started, "end": utc(),
             "source_root": relative(self.root, ROOT),
             "timeout_s": 2700, "timed_out": self.timed_out,

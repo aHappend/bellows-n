@@ -1,6 +1,7 @@
 """Declared partial clean-directory reproduction; never a claim of a full rerun."""
 
 import hashlib
+import os
 import shutil
 
 from execution import Execution, fresh, inventory, relative
@@ -22,7 +23,9 @@ def run(execution):
     folder = fresh("partial-reproduction", root=root)
     clean = Execution(folder, root=root)
     clean.deadline = min(clean.deadline, execution.deadline)
+    previous_cwd = os.getcwd()
     try:
+        os.chdir(root)
         coverage = {
             "integrated": integrated_checks.run(clean, width=64, compact=True,
                                                 boundary=(128, 1, 1)),
@@ -32,6 +35,8 @@ def run(execution):
         receipt = clean.finish("failed", str(error))
         raise AssertionError(f"clean reproduction failed: {error}; "
                              f"{relative(root / receipt, execution.root)}") from error
+    finally:
+        os.chdir(previous_cwd)
     receipt = clean.finish("passed", "partial representative behavior and structural synthesis",
                            **coverage)
     return {"scope": "partial: compact integrated behavior and structural synthesis",

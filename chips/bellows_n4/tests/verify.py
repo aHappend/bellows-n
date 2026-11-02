@@ -10,6 +10,7 @@ from execution import Execution, fresh
 import alu_checks
 import dma_checks
 import compatibility_checks
+import control_checks
 import integrated_checks
 import legacy_leaf_checks
 import mutation_checks
@@ -26,7 +27,7 @@ def main():
                                              "structural", "stale-address", "stale-address-icarus",
                                              "floating-mutations", "legacy-leaves", "legacy-mutations",
                                              "qos", "packet-mutations", "boundaries", "dma",
-                                             "compatibility", "reproduction"),
+                                             "compatibility", "reproduction", "control"),
                            help="bounded preparation diagnostic")
     arguments.add_argument("--repair-of", action="append", default=[],
                            help="project-relative retained failure receipt")
@@ -77,6 +78,9 @@ def main():
                 compatibility_checks.run(execution, width=width) for width in (64, 512)]}
         elif options.probe == "reproduction":
             coverage = {"reproduction": reproduction_checks.run(execution)}
+        elif options.probe == "control":
+            coverage = {"control": [control_checks.run(execution, width=width)
+                                    for width in (64, 512)]}
         else:
             coverage = parser_checks.run(execution)
             coverage.update(alu_checks.run(execution, widths=(64,), seeds=(17,),
@@ -100,6 +104,8 @@ def main():
             coverage["compatibility"] = [
                 compatibility_checks.run(execution, width=width) for width in (64, 512)]
             coverage["reproduction"] = reproduction_checks.run(execution)
+            coverage["control"] = [control_checks.run(execution, width=width)
+                                   for width in (64, 512)]
     except (AssertionError, RuntimeError, FileNotFoundError) as error:
         receipt = execution.finish("failed", str(error), repair_of=options.repair_of)
         print(f"FAILED {error}\nReceipt: {receipt}", flush=True)
