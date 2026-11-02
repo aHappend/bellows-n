@@ -47,6 +47,32 @@ OUTPUTS = {
     "coll_done_valid": "1", "coll_done_job": "16", "coll_done_bytes": "32",
 }
 
+CHANNEL_PAYLOADS = {
+    "m_axis_tvalid": ("m_axis_tdata", "m_axis_tkeep", "m_axis_tlast"),
+    "m_crc_valid": ("m_crc32c", "m_crc64_nvme", "m_crc_mismatch", "m_crc_protocol_error"),
+    "m_meta_valid": ("m_header", "m_packet_bytes", "m_rss_hash", "m_rss_valid",
+                     "m_rule_hit", "m_rule_index", "m_action"),
+    "ctl_valid": ("ctl_queue", "ctl_code"),
+    "dma_rd_valid": ("dma_rd_addr", "dma_rd_len"),
+    "dma_cpl_valid": ("dma_cpl_queue", "dma_cpl_cookie", "dma_cpl_status", "dma_cpl_bytes"),
+    "qp_cfg_rsp_valid": ("qp_cfg_rsp_status",),
+    "coll_cfg_rsp_valid": ("coll_cfg_rsp_status",),
+    "wr_valid": ("wr_addr", "wr_data", "wr_keep", "wr_last"),
+    "rdma_evt_valid": ("rdma_evt_status", "rdma_evt_qpn", "rdma_evt_psn",
+                       "rdma_evt_expected_psn", "rdma_evt_bytes", "rdma_evt_addr"),
+    "ack_valid": ("ack_data", "ack_local_qpn", "ack_remote_qpn", "ack_psn"),
+    "coll_done_valid": ("coll_done_job", "coll_done_bytes"),
+}
+
+
+def active_unknown_expression():
+    payloads = {port for ports in CHANNEL_PAYLOADS.values() for port in ports}
+    controls = ",".join(port for port in OUTPUTS if port not in payloads)
+    clauses = [f"((^{{{controls}}}) === 1'bx)"]
+    clauses += [f"({valid} && ((^{{{','.join(ports)}}}) === 1'bx))"
+                for valid, ports in CHANNEL_PAYLOADS.items()]
+    return " || ".join(clauses)
+
 
 def declarations():
     return "\n".join(

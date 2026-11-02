@@ -5,7 +5,7 @@ from pathlib import Path
 import random
 import struct
 
-from pins import declarations, OUTPUTS
+from pins import declarations, OUTPUTS, CHANNEL_PAYLOADS, active_unknown_expression
 from reference import crc_reflected, legacy_header, numerical, roce_frame
 
 
@@ -155,8 +155,33 @@ class Scenario:
         return entry
 
 
-def scenarios(width, seed, *, compact=False, stale_address=False):
+def scenarios(width, seed, *, compact=False, stale_address=False, boundary=None):
     scenario = Scenario(width, seed)
+    if boundary is not None:
+        packet, _, qps = boundary
+        for index in range(qps):
+            scenario.qp(index)
+        if packet == 1:
+            scenario.raw("singleton-buffer-drain", roce_frame(b"abcd"), 3)
+            scenario.raw("singleton-buffer-next-frame", b"\x01", 3)
+        else:
+            for index in range(qps):
+                for size in (1, 2, 3, 4, 7, 8, 9, 31):
+                    scenario.packet(f"boundary-q{index}-size{size}", index,
+                                    scenario.rng.randbytes(size))
+            scenario.packet("boundary-qpn-alias", 0, b"x",
+                            unknown_qpn=0x220000, force_status=5)
+            scenario.raw("boundary-oversize-drain", roce_frame(bytes(packet)), 3)
+            scenario.packet("boundary-drain-retry", 0, b"retry")
+            if qps > 1:
+                for index in range(qps):
+                    scenario.qp(index)
+                scenario.collective(0, 0, qps, 6, 1)
+                for index in range(qps):
+                    scenario.packet(f"boundary-contributor-{index}", index,
+                                    bytes((index, 0)) * 3, addr=0x2003)
+                scenario.disable_collective()
+        return scenario
     if stale_address:
         scenario.qp(0)
         scenario.packet("only-closes-message", 0, b"abcd", addr=0x1003)
@@ -169,6 +194,9 @@ def scenarios(width, seed, *, compact=False, stale_address=False):
     rng = scenario.rng
     if compact:
         scenario.packet("compact-protected-write", 0, bytes(range(33)))
+        scenario.packet("compact-protection-rejection", 0, b"abcd", addr=0xfff,
+                        force_status=7)
+        scenario.packet("compact-protection-retry", 0, b"efgh")
         scenario.collective(0, 0, 2, 18, 1)
         scenario.packet("compact-seed", 0, b"\xff\x7f" * 9, addr=0x2003)
         scenario.packet("compact-result", 1, b"\x01\0" * 9, addr=0x2003)
@@ -322,7 +350,7 @@ begin
     input_fire=s_axis_tvalid && s_axis_tready;
     qp_fire=qp_cfg_valid && qp_cfg_ready;
     coll_fire=coll_cfg_valid && coll_cfg_ready;
-    if ((^OUTPUT_BUNDLE) === 1'bx) begin
+    if (ACTIVE_UNKNOWN) begin
         XZ_DIAGNOSTICS
         $fatal(1,"TOP_ACTIVE_XZ frame=%0d",frame_id);
     end
@@ -447,7 +475,7 @@ begin
     // Different deterministic schedules independently stall every public sink.
     m_axis_tready=(cycles%11>=2); m_crc_ready=(cycles%13>=3);
     m_meta_ready=(cycles%17>=4);
-    wr_ready=(frame_id%2==0 || cycles%7>=2);
+    wr_ready=(write_length>=128*B || frame_id%2==0 || cycles%7>=2);
     ack_ready=(cycles%19>=5); rdma_evt_ready=(cycles%23>=6);
     coll_done_ready=(cycles%29>=7);
     @(posedge clk); cycles=cycles+1; observe();
@@ -613,9 +641,11 @@ def bench(folder, scenario):
     (folder / "vectors.json").write_text(json.dumps(manifest, indent=2) + "\n")
     (folder / "commands.txt").write_text("\n".join(calls) + "\n")
     all_outputs = "{" + ",".join(OUTPUTS) + "}"
-    body = BODY.replace("RESET_BUNDLE", all_outputs).replace("OUTPUT_BUNDLE", all_outputs)
+    body = BODY.replace("RESET_BUNDLE", all_outputs).replace(
+        "ACTIVE_UNKNOWN", active_unknown_expression())
+    valid_for = {port: valid for valid, ports in CHANNEL_PAYLOADS.items() for port in ports}
     body = body.replace("XZ_DIAGNOSTICS", "\n".join(
-        f'if ((^{name}) === 1\'bx) $display("UNKNOWN_OUTPUT {name}=%h '
+        f'if ({valid_for.get(name, "1")} && ((^{name}) === 1\'bx)) $display("UNKNOWN_OUTPUT {name}=%h '
         f'axis=%b wr=%b crc=%b meta=%b", {name},m_axis_tvalid,wr_valid,m_crc_valid,m_meta_valid);'
         for name in OUTPUTS))
     return (
@@ -687,31 +717,43 @@ endtask
 
 
 def run(execution, *, width=64, seed=17, compact=False, simulator="verilator",
-        stale_address=False):
-    label = f"integrated-w{width}-seed{seed}-{simulator}"
+        stale_address=False, rtl_root="rtl", prefix="integrated", boundary=None):
+    label = f"{prefix}-w{width}-seed{seed}-{simulator}"
     folder = execution.folder / label
     folder.mkdir(exist_ok=False)
     rel = folder.relative_to(execution.root)
-    scenario = scenarios(width, seed, compact=compact, stale_address=stale_address)
+    scenario = scenarios(width, seed, compact=compact, stale_address=stale_address,
+                         boundary=boundary)
     source = folder / "integrated_tb.sv"
     source.write_text(bench(rel, scenario))
     sources = [(rel / "integrated_tb.sv").as_posix(),
                *[p.relative_to(execution.root).as_posix()
-                 for p in sorted((execution.root / "rtl").glob("*.sv"))]]
+                 for p in sorted((execution.root / rtl_root).glob("*.sv"))]]
+    packet, scatter, qps = boundary or (9216, 16, 8)
     if simulator == "iverilog":
         binary = rel / "integrated.vvp"
         compile_argv = ["iverilog", "-g2012", "-Wall", "-s", "integrated_tb",
-                        f"-Pintegrated_tb.W={width}", "-o", binary.as_posix(), *sources]
+                        f"-Pintegrated_tb.W={width}", f"-Pintegrated_tb.MP={packet}",
+                        f"-Pintegrated_tb.MS={scatter}", f"-Pintegrated_tb.Q={qps}",
+                        "-o", binary.as_posix(), *sources]
         run_argv = ["vvp", binary.as_posix()]
     else:
         obj = rel / "integrated-obj"
         compile_argv = ["verilator", "--binary", "--timing", "-Wno-fatal", "-j", "2",
-                        "--top-module", "integrated_tb", f"-GW={width}",
+                        "--top-module", "integrated_tb", f"-GW={width}", f"-GMP={packet}",
+                        f"-GMS={scatter}", f"-GQ={qps}",
                         "--Mdir", obj.as_posix(), *sources]
         run_argv = [(obj / "Vintegrated_tb").as_posix()]
-    code, _, err = execution.run(f"{label}-compile", compile_argv)
-    if code:
-        raise RuntimeError(f"integrated compile exit {code}: {err[-4000:]}")
+    cache = getattr(execution, "integrated_binaries", {})
+    cache_key = (width, packet, scatter, qps, simulator, rtl_root)
+    if cache_key not in cache:
+        code, _, err = execution.run(f"{label}-compile", compile_argv)
+        if code:
+            raise RuntimeError(f"integrated compile exit {code}: {err[-4000:]}")
+        cache[cache_key] = run_argv
+        execution.integrated_binaries = cache
+    else:
+        run_argv = cache[cache_key]
     code, out, err = execution.run(f"{label}-behavior",
                                   [*run_argv, f"+commands={(rel / 'commands.txt').as_posix()}"],
                                   version_tool="vvp" if simulator == "iverilog" else "verilator")
@@ -719,5 +761,11 @@ def run(execution, *, width=64, seed=17, compact=False, simulator="verilator",
         raise AssertionError(f"integrated behavior exit {code}: {out[-4000:]} {err[-1000:]}")
     if f"SUMMARY frames={len(scenario.frames)} " not in out:
         raise AssertionError("integrated comparison coverage missing")
+    if not compact and not stale_address and boundary is None:
+        import re
+        measurement = re.search(r"max_write_burst=(\d+)", out)
+        if measurement is None or int(measurement.group(1)) < 128:
+            raise AssertionError("integrated result replay failed 128-consecutive-beat throughput")
     return {"width": width, "seed": seed, "frames": len(scenario.frames),
+            "max_packet_bytes": packet, "max_sg": scatter, "qps": qps,
             "measurement": out.strip()}
