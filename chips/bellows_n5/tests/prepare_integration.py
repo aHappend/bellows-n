@@ -13,7 +13,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from oracle import combine, ethernet_frame, x5_header
 
 
-def top_testbench(root, width, body_name="integration_body.svh"):
+def top_testbench(root, width, body_name="integration_body.svh", parameters=None):
+    parameters = parameters or dict(MAX_PACKET_BYTES=128, MAX_SG=1, QPS=1,
+                                    EXPERTS=3, MAX_K=3, TOKENS=3, MAX_TOKEN_ELEMS=129)
     text = (root / "rtl/bellows_n5_top.sv").read_text()
     header = text.split(") (", 1)[1].split("\n);", 1)[0]
     declarations, connections, initialization = [], [], []
@@ -41,13 +43,15 @@ def top_testbench(root, width, body_name="integration_body.svh"):
         if any(declaration.endswith(" " + name + ";") and "wire " in declaration
                for declaration in declarations))
     return ("\n`timescale 1ns/1ps\nmodule integration_tb;\n"
-            f"    localparam DATA_WIDTH={width}, EXPERTS=3, MAX_K=3;\n" +
+            f"    localparam DATA_WIDTH={width};\n" +
+            "\n".join(f"    localparam {name}={value};"
+                      for name, value in parameters.items()) + "\n" +
             "\n".join(declarations) +
             "\n    initial begin\n" + "\n".join(initialization) + "\n    end\n" +
             "    always #5 clk=~clk;\n"
-            "    bellows_n5_top #(.DATA_WIDTH(DATA_WIDTH),.MAX_PACKET_BYTES(128),"
-            ".MAX_SG(1),.QPS(1),.EXPERTS(3),.MAX_K(3),.TOKENS(3),"
-            ".MAX_TOKEN_ELEMS(129)) dut (\n" + ",\n".join(connections) +
+            "    bellows_n5_top #(.DATA_WIDTH(DATA_WIDTH)," +
+            ",".join(f".{name}({name})" for name in parameters) +
+            ") dut (\n" + ",\n".join(connections) +
             "\n    );\n"
             "    always @(posedge clk or negedge clk) if (!rst_n) begin\n" +
             reset_checks + "\n    end\n" + body + "\nendmodule\n")
@@ -129,32 +133,38 @@ def write_fixtures(output):
         "\n".join(f"{value:016x}" for value in mem_addresses + [0] * (1024 - len(mem_addresses))) + "\n")
 
 
-def fixtures(output):
+def fixtures(output, count=129, k=3, format=1):
     weights = [0x3f80, 0x3f00, 0xbf80]
-    activation = bytes(i & 255 for i in range(258))
+    activation = bytes(i & 255 for i in range(count << format))
     outputs = [[(0x3e00 + ((j * 17 + e * 31) & 255)) ^ (0x8000 if (j + e) % 5 == 0 else 0)
-                for j in range(129)] for e in range(3)]
+                for j in range(count)] for e in range(k)]
+    if format == 0:
+        outputs = [[v & 255 for v in values] for values in outputs]
     expected = []
-    for rank in range(3):
-        for offset in (0, 256):
+    fragments = (len(activation) + 255) // 256
+    for rank in range(k):
+        for offset in range(0, len(activation), 256):
             payload = activation[offset:offset + 256]
             header = x5_header(2, destination=2, source=1,
                                psn=len(expected), token=0x12340055,
-                               expert=rank, rank=rank, k=3, count=129,
-                               offset=offset // 2, payload_bytes=len(payload),
-                               format=1, final=offset == 256, weight=weights[rank])
+                               expert=rank, rank=rank, k=k, count=count,
+                               offset=offset >> format, payload_bytes=len(payload),
+                               format=format, final=offset + len(payload) == len(activation),
+                               weight=weights[rank])
             expected.append(ethernet_frame(header, payload, outgoing=True))
     incoming = []
     received = set()
     base = 0
-    for psn in (5, 4, 3, 2, 1, 0):
-        rank, fragment = divmod(psn, 2)
+    for psn in reversed(range(k * fragments)):
+        rank, fragment = divmod(psn, fragments)
         offset = fragment * 256
-        payload = b"".join(v.to_bytes(2, "little") for v in outputs[rank])[offset:offset + 256]
+        payload = b"".join(v.to_bytes(1 << format, "little")
+                           for v in outputs[rank])[offset:offset + 256]
         header = x5_header(3, psn=psn, token=0x12340055,
-                           expert=rank, rank=rank, k=3, count=129,
-                           offset=offset // 2, payload_bytes=len(payload),
-                           format=1, final=bool(fragment), weight=weights[rank])
+                           expert=rank, rank=rank, k=k, count=count,
+                           offset=offset >> format, payload_bytes=len(payload),
+                           format=format, final=offset + len(payload) == len(activation),
+                           weight=weights[rank])
         incoming.append(ethernet_frame(header, payload))
         received.add(psn)
         while base in received:
@@ -174,8 +184,9 @@ def fixtures(output):
         (output / (name + "-lengths.hex")).write_text(
             "\n".join(f"{v:08x}" for v in
                       [len(frame) for frame in frames] + [0] * (128 - len(frames))) + "\n")
-    combined = b"".join(combine(weights, [outputs[r][j] for r in range(3)]).to_bytes(2, "little")
-                        for j in range(129))
+    combined = b"".join(combine(weights[:k], [outputs[r][j] for r in range(k)],
+                                fp8=format == 0).to_bytes(2, "little")
+                        for j in range(count))
     (output / "combined.hex").write_text(
         "\n".join(f"{v:02x}" for v in combined + bytes(1024 - len(combined))) + "\n")
 

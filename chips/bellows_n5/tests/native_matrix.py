@@ -91,6 +91,133 @@ def stimulus(directory, geometry, seed, token_count=32):
     return tokens
 
 
+def packet_stimulus(directory, geometry, seed):
+    qps = GEOMETRIES[geometry][3]
+    bases = [0xffff80] * qps
+    committed = [set() for _ in range(qps)]
+    rng = random.Random(seed)
+    records = []
+
+    def append(qp, psn, *, variant=None):
+        psn &= 0xffffff
+        payload = bytes([(psn ^ (psn >> 8) ^ seed) & 255])
+        header = x5_header(1, destination=2 * qp + 1, source=2 * qp + 2,
+                           psn=psn, token=0x5a000000 | psn, count=1,
+                           payload_bytes=1, address=0x2000, rkey=0x01020304)
+        status = 0
+        if variant == "cancel":
+            header = x5_header(3, destination=2 * qp + 1, source=2 * qp + 2,
+                               psn=psn, token=0x5a000000 | psn, count=1,
+                               k=1, payload_bytes=1, format=0, weight=0x3f80)
+            status = 7
+        if variant == "rkey":
+            header = bytearray(header)
+            header[47] ^= 1
+            status = 6
+        if variant == "endpoint":
+            header = bytearray(header)
+            header[18] ^= 0x80
+            status = 5
+        if variant == "reserved":
+            header = bytearray(header)
+            header[11] = 1
+            status = 3
+        frame = bytearray(ethernet_frame(bytes(header), payload))
+        if variant == "crc":
+            frame[-1] ^= 1
+            status = 4
+        if variant == "checksum":
+            frame[24] ^= 1
+            status = 4
+        trusted = variant in {None, "cancel"}
+        memory = None
+        sack = None
+        if trusted:
+            distance = (psn - bases[qp]) & 0xffffff
+            if distance >= 1 << 23 or psn in committed[qp]:
+                status = 1
+            elif distance >= 256:
+                status = 2
+            elif status == 0:
+                committed[qp].add(psn)
+                memory = payload.hex()
+                while bases[qp] in committed[qp]:
+                    committed[qp].remove(bases[qp])
+                    bases[qp] = (bases[qp] + 1) & 0xffffff
+            bitmap = sum(1 << ((p - bases[qp]) & 0xffffff) for p in committed[qp])
+            sack_header = x5_header(4, destination=qp * 2 + 2, source=qp * 2 + 1,
+                                    psn=psn, payload_bytes=32, sack_base=bases[qp],
+                                    sack_status=3 if status == 7 else status)
+            sack = ethernet_frame(sack_header, bitmap.to_bytes(32, "little"),
+                                  outgoing=True).hex()
+        identity = status in {0, 1, 2, 6, 7}
+        records.append(dict(frame=bytes(frame).hex(), status=status, qp=qp if identity else 0,
+                            kind=header[5] if identity else 0,
+                            token=(0x5a000000 | psn) if identity else 0,
+                            psn=psn if identity else 0, sack=sack, memory=memory))
+
+    for block in range(4):
+        qp = block % qps
+        base = bases[qp]
+        offsets = list(range(1, 256))
+        rng.shuffle(offsets)
+        for offset in offsets:
+            append(qp, base + offset)
+        append(qp, base)
+    for replay in range(256):
+        qp = replay % qps
+        append(qp, bases[qp] - 1)
+    for qp in range(qps):
+        for distance in (256, (1 << 23) - 1, 1 << 23):
+            append(qp, bases[qp] + distance)
+    for variant in ("cancel", "rkey", "endpoint", "reserved", "crc", "checksum"):
+        append(0, bases[0], variant=variant)
+    append(0, bases[0])
+    (directory / "packets.txt").write_text(
+        str(len(records)) + "\n" + "\n".join(record["frame"] for record in records) + "\n")
+    (directory / "packet-expectations.json").write_text(json.dumps(records, indent=2) + "\n")
+    return records
+
+
+def validate_packets(directory, records):
+    expected_events = [(r["status"], r["kind"], r["qp"], r["token"], r["psn"])
+                       for r in records]
+    expected_sacks = [r["sack"] for r in records if r["sack"] is not None]
+    expected_mem = [r["memory"] for r in records if r["memory"] is not None]
+    events, sacks, memory = [], [], []
+    for line in (directory / "probe-trace.txt").read_text().splitlines():
+        fields = line.split()
+        kind, node = fields[0], int(fields[1])
+        if node != 0:
+            continue
+        if kind == "EVT":
+            events.append(tuple(int(v) for v in fields[3:]))
+        elif kind == "TX":
+            sacks.append(fields[3])
+        elif kind == "MEM":
+            if int(fields[3]) != 0x2000:
+                raise AssertionError("direct placement address mismatch")
+            memory.append(fields[4])
+        elif kind not in {"RX"}:
+            raise AssertionError(f"unexpected packet-probe record: {line}")
+    if events != expected_events:
+        mismatch = next((i for i, pair in enumerate(zip(events, expected_events))
+                         if pair[0] != pair[1]), min(len(events), len(expected_events)))
+        raise AssertionError(f"packet event mismatch index={mismatch}: "
+                             f"{events[mismatch:mismatch+1]} != "
+                             f"{expected_events[mismatch:mismatch+1]}")
+    if sacks != expected_sacks:
+        raise AssertionError("serialized SACK mismatch")
+    if memory != expected_mem:
+        raise AssertionError("direct-placement bytes/multiplicity mismatch")
+    counts = dict(committed_packets=len(memory), duplicates=sum(r["status"] == 1 for r in records),
+                  ahead=sum(r["status"] == 2 for r in records), compared_sacks=len(sacks),
+                  cancelled=sum(r["status"] == 7 for r in records), events=len(events))
+    if counts["committed_packets"] < 1024 or counts["duplicates"] < 256:
+        raise AssertionError("missing receive-window public comparisons")
+    return counts
+
+
 def validate(directory, geometry, tokens, token_count=32):
     """Reconstruct commitments and numeric expectations from complete public records."""
     _, _, _, qps, experts, max_k, slots, _ = GEOMETRIES[geometry]
@@ -237,8 +364,11 @@ def matrix(run, geometries=None, seeds=(17, 89, 203), token_count=32):
             directory = run.output / f"{geometry}-seed-{seed}"
             directory.mkdir()
             tokens = stimulus(directory, geometry, seed, token_count)
+            packets = packet_stimulus(directory, geometry, seed)
             run.command([run.relative(executable), run.relative(directory), str(seed)])
+            packet_counts = validate_packets(directory, packets)
             counts = validate(directory, geometry, tokens, token_count)
+            counts.update(packet_counts)
             result = dict(geometry=geometry, parameters=GEOMETRIES[geometry],
                           seed=seed, comparisons=counts)
             results.append(result)
