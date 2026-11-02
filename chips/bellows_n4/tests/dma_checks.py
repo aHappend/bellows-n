@@ -217,7 +217,8 @@ def run(execution, *, width=64):
         "for(integer q=0;q<8;q=q+1) producer_seq[q]=0;")
     source_text = source_text.replace(
         "execute_commands();",
-        "execute_commands();\ndma_error(1); dma_error(2); dma_error(3); dma_error(4);")
+        "execute_commands();\n"
+        "for(integer fault=1;fault<=4;fault=fault+1) dma_error(fault);")
     source = folder / "integrated_tb.sv"
     source.write_text(source_text)
     obj = rel / "dma-obj"

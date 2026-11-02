@@ -52,15 +52,19 @@ class Execution:
         self.started = utc()
         self.invocation = ["python3", relative(Path(sys.argv[0]), ROOT), *sys.argv[1:]]
         self.deadline = time.monotonic() + 2700
+        inherited = os.environ.get("FURNACE_CHECK_DEADLINE")
+        if inherited is not None:
+            self.deadline = min(self.deadline, float(inherited))
         self.timed_out = False
 
-    def run(self, label, argv, *, version_tool=None):
+    def run(self, label, argv, *, version_tool=None, cwd=None):
         remaining = self.deadline - time.monotonic()
         if remaining <= 0:
             self.timed_out = True
             raise RuntimeError("complete L1 execution exceeded its 2700-second budget")
         budget = min(600, remaining)
         deadline = time.monotonic() + budget
+        cwd = Path(cwd) if cwd is not None else self.root
         command_dir = self.folder / label
         command_dir.mkdir(exist_ok=False)
         start = utc()
@@ -78,13 +82,13 @@ class Execution:
         try:
             version_exit = self._execute(
                 version_args, command_dir / "tool-version.stdout.txt",
-                command_dir / "tool-version.stderr.txt", deadline, label + "-version")
-            exit_code = self._execute(argv, stdout, stderr, deadline, label)
+                command_dir / "tool-version.stderr.txt", deadline, label + "-version", cwd)
+            exit_code = self._execute(argv, stdout, stderr, deadline, label, cwd)
         except subprocess.TimeoutExpired:
             timed_out = True
             self.timed_out = True
         record = {
-            "argv": argv, "cwd": ".", "start": start, "end": utc(),
+            "argv": argv, "cwd": relative(cwd, self.root), "start": start, "end": utc(),
             "source_sha256": self.hashes, "timeout_s": budget,
             "timed_out": timed_out, "exit_code": exit_code,
             "process_scope_settled": True,
@@ -103,10 +107,12 @@ class Execution:
                                f"retained {relative(receipt, self.root)}")
         return exit_code, stdout.read_text(), stderr.read_text()
 
-    def _execute(self, argv, stdout, stderr, deadline, label):
+    def _execute(self, argv, stdout, stderr, deadline, label, cwd):
         with stdout.open("w") as out, stderr.open("w") as err:
-            child = subprocess.Popen(argv, cwd=self.root, stdout=out, stderr=err,
-                                     start_new_session=True)
+            environment = os.environ.copy()
+            environment["FURNACE_CHECK_DEADLINE"] = str(deadline - 10)
+            child = subprocess.Popen(argv, cwd=cwd, stdout=out, stderr=err,
+                                     start_new_session=True, env=environment)
             try:
                 while True:
                     remaining = deadline - time.monotonic()

@@ -27,7 +27,8 @@ def main():
                                              "structural", "stale-address", "stale-address-icarus",
                                              "floating-mutations", "legacy-leaves", "legacy-mutations",
                                              "qos", "packet-mutations", "boundaries", "dma",
-                                             "compatibility", "reproduction", "control"),
+                                             "compatibility", "reproduction", "reproduction-child",
+                                             "control", "reference"),
                            help="bounded preparation diagnostic")
     arguments.add_argument("--repair-of", action="append", default=[],
                            help="project-relative retained failure receipt")
@@ -35,9 +36,12 @@ def main():
     folder = fresh(f"{options.probe}-reference" if options.probe else "l1",
                    preparation=bool(options.probe))
     execution = Execution(folder)
+    coverage = {}
     try:
-        self_check()
-        if options.probe == "parser":
+        reference_coverage = self_check()
+        if options.probe == "reference":
+            coverage = reference_coverage
+        elif options.probe == "parser":
             coverage = parser_checks.run(execution)
         elif options.probe == "alu":
             coverage = alu_checks.run(execution, widths=(64,), seeds=(17,))
@@ -78,6 +82,11 @@ def main():
                 compatibility_checks.run(execution, width=width) for width in (64, 512)]}
         elif options.probe == "reproduction":
             coverage = {"reproduction": reproduction_checks.run(execution)}
+        elif options.probe == "reproduction-child":
+            coverage = {
+                "integrated": integrated_checks.run(
+                    execution, width=64, compact=True, boundary=(128, 1, 1)),
+                "structural": structural_checks.run(execution, compact=True)}
         elif options.probe == "control":
             coverage = {"control": [control_checks.run(execution, width=width)
                                     for width in (64, 512)]}
@@ -106,8 +115,10 @@ def main():
             coverage["reproduction"] = reproduction_checks.run(execution)
             coverage["control"] = [control_checks.run(execution, width=width)
                                    for width in (64, 512)]
+        coverage.update(reference_coverage)
     except (AssertionError, RuntimeError, FileNotFoundError) as error:
-        receipt = execution.finish("failed", str(error), repair_of=options.repair_of)
+        receipt = execution.finish("failed", str(error), repair_of=options.repair_of,
+                                   completed_coverage=coverage)
         print(f"FAILED {error}\nReceipt: {receipt}", flush=True)
         return 1
     receipt = execution.finish("passed", "independent reference comparisons",
