@@ -1,0 +1,11 @@
+{
+  "chip": "Bellows-N4",
+  "fitter_resources": {
+    "total_registers": 280005,
+    "block_memory_bits": 102800,
+    "dsp_blocks": 0,
+    "virtual_pins": 5741
+  },
+  "timing": {},
+  "verification_tiers": {}
+}
