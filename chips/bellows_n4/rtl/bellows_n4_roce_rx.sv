@@ -4,7 +4,7 @@ module furnace_roce_rx #(
     parameter integer MAX_PACKET_BYTES=9216,
     parameter integer QPS=8
 ) (
-    input wire clk, rst_n, enable,
+    input wire clk, rst_n, enable, boundary_idle,
     output wire idle,
     input wire s_valid,
     output wire s_ready,
@@ -142,9 +142,9 @@ module furnace_roce_rx #(
     wire [7:0] qp_enabled;
     wire [23:0] qp_ranks;
     wire [511:0] qp_bases, qp_lengths;
-    wire collective_enabled, collective_busy;
+    wire collective_enabled, collective_active, collective_busy;
     wire [63:0] collective_address;
-    wire configuration_boundary=enable && state==CAPTURE && capture_base==0 &&
+    wire configuration_boundary=enable && boundary_idle && state==CAPTURE && capture_base==0 &&
                                 !collective_busy && !qp_cfg_rsp_valid && !coll_cfg_rsp_valid;
     wire tracker_cfg_ready, collective_cfg_ready;
     assign qp_cfg_ready=tracker_cfg_ready;
@@ -170,7 +170,7 @@ module furnace_roce_rx #(
     wire canceled=state==WORK_COLL && collective_done && collective_status!=1;
     furnace_psn_tracker #(.QPS(QPS)) psn_tracker (
         .clk(clk), .rst_n(rst_n),
-        .idle_allow(configuration_boundary && !collective_enabled),
+        .idle_allow(configuration_boundary && !collective_active),
         .cfg_valid(qp_cfg_valid && configuration_boundary),
         .cfg_ready(tracker_cfg_ready), .cfg_enable(qp_cfg_enable), .cfg_index(qp_cfg_index),
         .cfg_local_qpn(qp_cfg_local_qpn), .cfg_remote_qpn(qp_cfg_remote_qpn),
@@ -217,7 +217,7 @@ module furnace_roce_rx #(
         .cfg_addr(coll_cfg_addr), .cfg_rsp_valid(coll_cfg_rsp_valid),
         .cfg_rsp_ready(coll_cfg_rsp_ready), .cfg_rsp_status(coll_cfg_rsp_status),
         .qp_enabled(qp_enabled), .qp_ranks(qp_ranks), .qp_bases(qp_bases),
-        .qp_lengths(qp_lengths), .job_enabled(collective_enabled),
+        .qp_lengths(qp_lengths), .job_enabled(collective_enabled), .job_active(collective_active),
         .busy(collective_busy), .job_addr(collective_address),
         .cmd_valid(state==COLL_CMD), .cmd_ready(collective_cmd_ready),
         .cmd_opcode(parser_opcode), .cmd_rank(tracker_rank),
@@ -307,12 +307,14 @@ module furnace_roce_rx #(
                     evt_expected<=0; evt_bytes<={18'b0,parser_payload_bytes};
                     evt_addr<=parser_address; want_ack<=0;
                     response_remote<=0; response_psn<=0; response_msn<=0; response_syndrome<=0;
-                    if (parser_status==0 && parser_trusted) state<=TRACK_START;
+                    if ((parser_status==0 || parser_status==4) && parser_trusted)
+                        state<=TRACK_START;
                     else state<=EMIT;
                 end
                 TRACK_START: if (tracker_request_ready) state<=TRACK_WAIT;
                 TRACK_WAIT: if (tracker_valid) begin
-                    evt_status<=tracker_status; evt_expected<=tracker_expected;
+                    evt_status<=(parser_status==4) ? 4'd4 : tracker_status;
+                    evt_expected<=tracker_expected;
                     evt_addr<=tracker_address; placement_address<=tracker_address;
                     response_remote<=tracker_remote;
                     committed_msn<=tracker_msn+{23'b0,tracker_complete};

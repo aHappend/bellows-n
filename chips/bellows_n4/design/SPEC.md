@@ -74,7 +74,10 @@ parent handshakes. Oversize frames drain to last without wrapping storage.
 Accept Ethernet II, up to two 8100/88a8 VLAN tags, IPv4 IHL 5..15 without
 fragmentation, or fixed-header IPv6 with next-header UDP. UDP destination is
 4791. IP and UDP lengths bound parsing; trailing Ethernet padding is ignored.
-IPv4 header checksum is validated. The surrounding NIC supplies UDP checksum
+IPv4 header checksum is validated using a 21-bit unfolded sum of up to thirty
+16-bit header words (IHL=15). Fold all five upper carry bits into the low
+16 bits, then fold the remaining carry; the result must equal ffff.
+The surrounding NIC supplies UDP checksum
 validation, including mandatory IPv6 UDP checksum validation; this subsystem
 does not claim that ICRC substitutes for a UDP checksum.
 
@@ -152,6 +155,27 @@ canonical 7fc0/7fc00000. Exact cancellation is +0; -0+-0 is -0.
 MIN/MAX are minimumNumber/maximumNumber: a lone NaN returns the other operand
 unchanged; two NaNs return canonical NaN. Zero ties yield -0 MIN, +0 MAX.
 Equal nonzero operands select left. Inactive lane data/keep is zero.
+
+Completed jobs retain their collective address reservation until disabled or
+reconfigured; a contributor with a fresh PSN cannot turn into an ordinary
+overwrite just because completion was consumed. Configuration is available
+again after completion consumption. QP configuration is blocked while a job
+is active, including before its first contributor.
+
+Successful receive events report the post-commit expected PSN; sequence/error
+events report the unchanged expected PSN. A previous-PSN ACK replay requires
+an actual prior commitment since QP configuration, not merely arithmetic
+equality with the configured seed minus one. Empty ordinary segments are
+permitted when message accounting permits them: no empty-keep write is emitted,
+but transport commitment and completion/ACK ordering still apply.
+
+Validation precedence is frame bounds/shape, non-RoCE classification,
+unsupported outer header, remaining IP/UDP/BTH shape, ICRC, then transport and
+collective checks. Validly authenticated unsupported opcodes retain status 4;
+an identified enabled QP may receive invalid-request NAK. IPv4 fragmentation
+and IPv6 extension forms are unsupported (status 4), not interpreted as
+ordinary UDP RoCE. The UDP length including IB padding is a multiple of four;
+received ACK requires zero IB pad and exactly BTH+AETH+ICRC.
 
 ## Cycle & degenerate-boundary table
 

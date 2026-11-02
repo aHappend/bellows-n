@@ -37,7 +37,7 @@ module furnace_psn_tracker #(
     localparam integer N=(QPS>=1 && QPS<=8) ? QPS : 1;
     localparam IDLE=0, LOOKUP=1, VALIDATE=2, BOUNDS=3, RESULT=4, WAIT_COMMIT=5;
     reg [2:0] state, cursor;
-    reg [N-1:0] enable_bits, message_open;
+    reg [N-1:0] enable_bits, message_open, committed_bits;
     reg [23:0] local_qpn [0:N-1], remote_qpn [0:N-1], expected [0:N-1], msn [0:N-1];
     reg [31:0] keys [0:N-1], total [0:N-1], offset [0:N-1];
     reg [63:0] base [0:N-1], length [0:N-1], message_addr [0:N-1];
@@ -81,7 +81,7 @@ module furnace_psn_tracker #(
     integer n;
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            state<=IDLE; cursor<=0; enable_bits<=0; message_open<=0;
+            state<=IDLE; cursor<=0; enable_bits<=0; message_open<=0; committed_bits<=0;
             cfg_pending<=0; cfg_rsp_status<=0;
             op<=0; qpn<=0; psn<=0; addr<=0; key<=0;
             message_length<=0; payload_length<=0;
@@ -109,6 +109,7 @@ module furnace_psn_tracker #(
                     expected[cfg_index]<=cfg_expected_psn; keys[cfg_index]<=cfg_rkey;
                     base[cfg_index]<=cfg_base; length[cfg_index]<=cfg_length;
                     rank[cfg_index]<=cfg_rank; message_open[cfg_index]<=0;
+                    committed_bits[cfg_index]<=0;
                     total[cfg_index]<=0; offset[cfg_index]<=0;
                     message_addr[cfg_index]<=0; msn[cfg_index]<=0;
                 end
@@ -129,10 +130,14 @@ module furnace_psn_tracker #(
                         result_found<=1; result_index<=cursor; result_rank<=rank[cursor];
                         result_expected<=expected[cursor]; result_remote_qpn<=remote_qpn[cursor];
                         result_msn<=msn[cursor]; region_end<={1'b0,base[cursor]}+{1'b0,length[cursor]};
-                        if (psn!=expected[cursor]) begin
+                        if (op!=8'h06 && op!=8'h07 && op!=8'h08 &&
+                            op!=8'h09 && op!=8'h0a && op!=8'h0b) begin
+                            result_status<=4; state<=RESULT;
+                        end else if (psn!=expected[cursor]) begin
                             result_status<=6;
                             result_syndrome<=8'h60;
-                            result_duplicate<=psn==(expected[cursor]-24'd1);
+                            result_duplicate<=committed_bits[cursor] &&
+                                              psn==(expected[cursor]-24'd1);
                             state<=RESULT;
                         end else begin result_status<=0; state<=VALIDATE; end
                     end else if (cursor==QPS-1) state<=RESULT;
@@ -150,8 +155,7 @@ module furnace_psn_tracker #(
                         next_message_addr<=addr; next_total<=message_length;
                         next_offset<={18'b0,payload_length};
                         if (message_open[cursor] || key!=keys[cursor] ||
-                            ((op==8'h06) && (payload_length==0 ||
-                             {18'b0,payload_length}>=message_length)) ||
+                            ((op==8'h06) && {18'b0,payload_length}>message_length) ||
                             ((op!=8'h06) && {18'b0,payload_length}!=message_length))
                             result_status<=7;
                         if (key!=keys[cursor]) result_syndrome<=8'h62;
@@ -164,9 +168,9 @@ module furnace_psn_tracker #(
                                     {33'b0,offset[cursor]}+{51'b0,payload_length};
                         offset_end<={1'b0,offset[cursor]}+{19'b0,payload_length};
                         next_offset<=offset[cursor]+{18'b0,payload_length};
-                        if (!message_open[cursor] || payload_length==0 ||
+                        if (!message_open[cursor] ||
                             ((op==8'h07) &&
-                             ({1'b0,offset[cursor]}+{19'b0,payload_length}>={1'b0,total[cursor]})) ||
+                             ({1'b0,offset[cursor]}+{19'b0,payload_length}>{1'b0,total[cursor]})) ||
                             ((op!=8'h07) &&
                              ({1'b0,offset[cursor]}+{19'b0,payload_length}!={1'b0,total[cursor]})))
                             result_status<=7;
@@ -191,6 +195,7 @@ module furnace_psn_tracker #(
                     if (cancel) state<=IDLE;
                     else if (commit) begin
                         expected[result_index]<=expected[result_index]+24'd1;
+                        committed_bits[result_index]<=1;
                         message_open[result_index]<=next_open;
                         total[result_index]<=next_total; offset[result_index]<=next_offset;
                         message_addr[result_index]<=next_message_addr;

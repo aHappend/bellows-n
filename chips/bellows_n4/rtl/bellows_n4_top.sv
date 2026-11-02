@@ -122,8 +122,12 @@ module bellows_n4_top #(
         wire [DATA_WIDTH-1:0] legacy_data;
         wire [(DATA_WIDTH>>3)-1:0] legacy_keep;
         wire legacy_valid, legacy_last, legacy_ready, receive_ready, receive_idle;
+        wire legacy_input_ready;
+        wire configuration_fire=roce_enable &&
+             ((qp_cfg_valid && qp_cfg_ready) || (coll_cfg_valid && coll_cfg_ready));
         reg external_sent, receive_sent, fork_open;
         assign m_axis_tdata=legacy_data;
+        assign s_axis_tready=legacy_input_ready && !configuration_fire;
         assign m_axis_tkeep=legacy_keep;
         assign m_axis_tlast=legacy_last;
         assign m_axis_tvalid=legacy_valid &&
@@ -149,7 +153,8 @@ module bellows_n4_top #(
         furnace_x3_top #(.DATA_WIDTH(DATA_WIDTH), .MAX_PACKET_BYTES(MAX_PACKET_BYTES),
                          .MAX_SG(MAX_SG)) legacy_core (
             .clk(clk), .rst_n(rst_n), .s_axis_tdata(s_axis_tdata), .s_axis_tkeep(s_axis_tkeep),
-            .s_axis_tvalid(s_axis_tvalid), .s_axis_tlast(s_axis_tlast), .s_axis_tready(s_axis_tready),
+            .s_axis_tvalid(s_axis_tvalid && !configuration_fire), .s_axis_tlast(s_axis_tlast),
+            .s_axis_tready(legacy_input_ready),
             .s_check_enable(s_check_enable), .s_expected_crc32c(s_expected_crc32c),
             .s_expected_crc64_nvme(s_expected_crc64_nvme),
             .m_axis_tdata(legacy_data), .m_axis_tkeep(legacy_keep),
@@ -180,6 +185,7 @@ module bellows_n4_top #(
         furnace_roce_rx #(.DATA_WIDTH(DATA_WIDTH), .MAX_PACKET_BYTES(MAX_PACKET_BYTES),
                          .QPS(QPS)) roce_rx (
             .clk(clk), .rst_n(rst_n), .enable(roce_enable), .idle(receive_idle),
+            .boundary_idle(!fork_open && !legacy_valid && dma_idle),
             .s_valid(roce_enable && fork_open && legacy_valid && !receive_sent),
             .s_ready(receive_ready), .s_data(legacy_data), .s_keep(legacy_keep), .s_last(legacy_last),
             .qp_cfg_valid(qp_cfg_valid), .qp_cfg_ready(qp_cfg_ready), .qp_cfg_enable(qp_cfg_enable),

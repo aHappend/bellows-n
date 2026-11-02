@@ -29,7 +29,7 @@ module furnace_roce_parser (
     reg [7:0] ip_header_bytes;
     reg [15:0] ip_length, udp_length, destination_port;
     reg [7:0] high_byte, protocol;
-    reg [17:0] checksum;
+    reg [20:0] checksum;
     reg [1:0] pad;
     reg [31:0] crc, received_crc;
     reg bth_seen, bth_bad;
@@ -75,8 +75,8 @@ module furnace_roce_parser (
         if (bth_start!=0 && bth_rel==4) invariant_byte=8'hff;
     end
     wire [31:0] crc_next=crc_byte(crc,invariant_byte);
-    wire [17:0] checksum_add={2'b0,high_byte,mem_data}+checksum;
-    wire [16:0] checksum_fold={1'b0,checksum[15:0]}+{15'b0,checksum[17:16]};
+    wire [20:0] checksum_add={5'b0,high_byte,mem_data}+checksum;
+    wire [16:0] checksum_fold={1'b0,checksum[15:0]}+{12'b0,checksum[20:16]};
     wire [16:0] checksum_final={1'b0,checksum_fold[15:0]}+{16'b0,checksum_fold[16]};
     wire supported_write=opcode==8'h06 || opcode==8'h07 ||
                          opcode==8'h08 || opcode==8'h09 ||
@@ -129,7 +129,7 @@ module furnace_roce_parser (
                         ether_type<={high_byte,mem_data};
                         if ({high_byte,mem_data}==16'h8100 ||
                             {high_byte,mem_data}==16'h88a8) begin
-                            if (tags==2) begin unsupported<=1; bypass<=1; end
+                            if (tags==2) begin unsupported<=1; state<=FINISH; end
                             else begin tags<=tags+1'b1; type_end<=type_end+14'd4; end
                         end else begin
                             ip_start<=index+1'b1;
@@ -224,12 +224,12 @@ module furnace_roce_parser (
                          ip_end<({3'b0,ip_start}+{9'b0,ip_header_bytes})))) status<=3;
                     else if (bypass) status<=2;
                     else if (unsupported) status<=4;
-                    else if (version==0 || udp_length<24 || udp_end!=ip_end ||
+                    else if (version==0 || udp_length<24 || udp_length[1:0]!=0 || udp_end!=ip_end ||
                              protocol!=17 || !bth_seen || bth_bad ||
                              (version==1 && checksum_final!=17'h0ffff) ||
                              header_end>data_end || data_end>ip_end ||
                              (opcode==8'h11 &&
-                              udp_end!=({3'b0,bth_start}+17'd20))) status<=3;
+                              (pad!=0 || udp_end!=({3'b0,bth_start}+17'd20)))) status<=3;
                     else if (received_crc!=~crc) status<=9;
                     else begin
                         trusted<=1;

@@ -18,7 +18,7 @@ module furnace_collective_engine #(
     input wire [7:0] qp_enabled,
     input wire [23:0] qp_ranks,
     input wire [511:0] qp_bases, qp_lengths,
-    output wire job_enabled, busy,
+    output wire job_enabled, job_active, busy,
     output wire [63:0] job_addr,
     input wire cmd_valid,
     output wire cmd_ready,
@@ -97,14 +97,16 @@ module furnace_collective_engine #(
             if (q<cfg_participants && !seen_ranks[q]) invalid_ranks=1;
     end
     assign job_enabled=rst_n && enabled;
+    assign job_active=rst_n && enabled && (next_rank<participants || completion_pending);
     assign job_addr=rst_n ? address : 64'b0;
     assign busy=rst_n && (state!=IDLE || completion_pending);
     assign cfg_ready=rst_n && idle_allow && state==IDLE &&
-                     next_rank==0 && !cfg_pending && !completion_pending;
+                     (next_rank==0 || next_rank==participants) &&
+                     !cfg_pending && !completion_pending;
     assign cfg_rsp_valid=rst_n && cfg_pending;
     assign cmd_ready=rst_n && state==IDLE && enabled && !cfg_pending &&
                      !completion_pending && !cfg_valid;
-    assign cmd_error=cmd_rank!={1'b0,next_rank[2:0]} ||
+    assign cmd_error={1'b0,cmd_rank}!=next_rank ||
                      (cmd_opcode!=8'h0a && cmd_opcode!=8'h0b) ||
                      {18'b0,cmd_bytes}!=bytes;
     assign in_ready=rst_n && state==STREAM &&
@@ -225,8 +227,8 @@ module furnace_collective_engine #(
                         end
                     end
                     if (wr_valid && wr_ready && wr_last) begin
-                        completion_pending<=1; enabled<=0;
-                        done_status<=1; state<=DONE; next_rank<=0;
+                        completion_pending<=1;
+                        done_status<=1; state<=DONE; next_rank<=participants;
                     end
                 end
                 DONE: if (done_ready) begin

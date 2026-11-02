@@ -22,6 +22,8 @@ module furnace_reduce_lane #(
     reg [31:0] selected2;
     reg [15:0] ia2, ib2;
     reg int2;
+    reg select2, choose_a2;
+    reg [31:0] operand_a2, operand_b2;
     reg [1:0] op2;
     reg [26:0] big3, aligned3;
     reg [7:0] exponent3;
@@ -29,6 +31,8 @@ module furnace_reduce_lane #(
     reg [31:0] selected3;
     reg [15:0] ia3, ib3;
     reg [1:0] op3;
+    reg select3, choose_a3;
+    reg [31:0] operand_a3, operand_b3;
     reg [27:0] sum4;
     reg [7:0] exponent4;
     reg sign4, bypass4;
@@ -55,33 +59,36 @@ module furnace_reduce_lane #(
                   (a1[31] ? a1[30:0] > b1[30:0] :
                             a1[30:0] < b1[30:0]);
     reg [31:0] selected_next;
-    reg bypass_next;
+    reg bypass_next, select_next, choose_a_next;
     always @* begin
         selected_next=0;
         bypass_next=0;
+        select_next=0; choose_a_next=1;
         if (!active1) begin
             bypass_next=1;
         end else if (int1) begin
             bypass_next=1;
             if (op1!=0) begin
-                if (a1[15:0]==b1[15:0]) selected_next={16'b0,a1[15:0]};
+                select_next=1;
+                if (a1[15:0]==b1[15:0]) choose_a_next=1;
                 else if (op1==1)
-                    selected_next=($signed(a1[15:0])>$signed(b1[15:0])) ?
-                                  {16'b0,a1[15:0]} : {16'b0,b1[15:0]};
-                else selected_next=($signed(a1[15:0])<$signed(b1[15:0])) ?
-                                  {16'b0,a1[15:0]} : {16'b0,b1[15:0]};
+                    choose_a_next=$signed(a1[15:0])>$signed(b1[15:0]);
+                else choose_a_next=$signed(a1[15:0])<$signed(b1[15:0]);
             end
         end else if (op1!=0) begin
             bypass_next=1;
             if (nan_a && nan_b) selected_next=32'h7fc00000;
-            else if (nan_a) selected_next=b1;
-            else if (nan_b) selected_next=a1;
+            else if (nan_a) begin select_next=1; choose_a_next=0; end
+            else if (nan_b) begin select_next=1; choose_a_next=1; end
             else if (zero_a && zero_b)
                 selected_next={(op1==2 ? (a1[31]|b1[31]) :
                                                        (a1[31]&b1[31])),31'b0};
-            else if (a1==b1) selected_next=a1;
-            else if (op1==1) selected_next=a_less ? b1 : a1;
-            else selected_next=a_less ? a1 : b1;
+            else begin
+                select_next=1;
+                if (a1==b1) choose_a_next=1;
+                else if (op1==1) choose_a_next=!a_less;
+                else choose_a_next=a_less;
+            end
         end else if (nan_a || nan_b ||
                      (inf_a && inf_b && a1[31]!=b1[31])) begin
             bypass_next=1; selected_next=32'h7fc00000;
@@ -166,9 +173,11 @@ module furnace_reduce_lane #(
             big2<=0; small2<=0; exponent2<=0; distance2<=0;
             sign2<=0; subtract2<=0; bypass2<=0; selected2<=0;
             ia2<=0; ib2<=0; int2<=0; op2<=0;
+            select2<=0; choose_a2<=0; operand_a2<=0; operand_b2<=0;
             big3<=0; aligned3<=0; exponent3<=0; sign3<=0;
             subtract3<=0; bypass3<=0; selected3<=0;
             ia3<=0; ib3<=0; int3<=0; op3<=0;
+            select3<=0; choose_a3<=0; operand_a3<=0; operand_b3<=0;
             sum4<=0; exponent4<=0; sign4<=0; bypass4<=0; selected4<=0;
             sum5<=0; exponent5<=0; shift5<=0; sign5<=0;
             bypass5<=0; selected5<=0;
@@ -189,14 +198,19 @@ module furnace_reduce_lane #(
             subtract2<=a1[31]^b1[31];
             bypass2<=bypass_next; selected2<=selected_next;
             ia2<=a1[15:0]; ib2<=b1[15:0]; int2<=int1 && active1; op2<=op1;
+            select2<=select_next; choose_a2<=choose_a_next;
+            operand_a2<=a1; operand_b2<=b1;
 
             big3<=big2; aligned3<=alignment_next; exponent3<=exponent2;
             sign3<=sign2; subtract3<=subtract2; bypass3<=bypass2;
             selected3<=selected2; ia3<=ia2; ib3<=ib2; int3<=int2; op3<=op2;
+            select3<=select2; choose_a3<=choose_a2;
+            operand_a3<=operand_a2; operand_b3<=operand_b2;
 
             sum4<=arithmetic_next; exponent4<=exponent3;
             sign4<=sign3; bypass4<=bypass3;
-            selected4<=(int3 && op3==0) ? {16'b0,integer_sum} : selected3;
+            selected4<=(int3 && op3==0) ? {16'b0,integer_sum} :
+                       select3 ? (choose_a3 ? operand_a3 : operand_b3) : selected3;
 
             sum5<=sum4; exponent5<=exponent4; shift5<=leading_next;
             sign5<=sign4; bypass5<=bypass4; selected5<=selected4;
