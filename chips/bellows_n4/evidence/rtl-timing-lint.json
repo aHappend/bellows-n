@@ -1,6 +1,6 @@
 {
   "gate": "rtl-timing-lint",
-  "timestamp_utc": "2026-11-02T18:26:24.465726+00:00",
+  "timestamp_utc": "2026-11-02T20:38:02.980466+00:00",
   "root": "/data/sufeng/furnace-x4-line/workspace/project",
   "status": "passed",
   "max_comb_div_width": 0,
@@ -19,7 +19,7 @@
     "rtl/furnace_dmp_engine.sv": "69d6fc9442edd70ac3db1c96008c9230aa5857664c36c3faf6967dd4c54b06e0",
     "rtl/furnace_drr_scheduler.sv": "d1c8b750a1e0bc42ee0ff8bdaf9db3f909158b67850adbeffa3225891ec12ca3",
     "rtl/furnace_header_parser.sv": "6dc08e981886f7565ab360b6719fa4d85bd61115e2473916c86e4a432c6b2610",
-    "rtl/furnace_psn_tracker.sv": "95aab130b0a0132524e5a68a8d9e5ec130d7b471f8b63da2fe315486eb16f272",
+    "rtl/furnace_psn_tracker.sv": "1dda80dc4f97a3070eec24e53c9db2ddc482b6890ce8bc27aeb438e8bd807f1f",
     "rtl/furnace_reduce_alu.sv": "d70b1a64982de6fbcd78744328696b9e5a22f721b20b124b610e72b27d09b18f",
     "rtl/furnace_reduce_lane.sv": "d60c36f71a41ce0b83e0e61d1d5ebb074a2daa6a48ee76a49cdb27f29fede2a7",
     "rtl/furnace_roce_parser.sv": "0dbf46d4259e0069179a8bd0f1f7a29843e97192ec053bc18676b94fad016e8b",
