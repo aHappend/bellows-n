@@ -6,14 +6,18 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from parameters import parameters
+from mutations import MUTATIONS, mutations
 from retention import Run
-from smoke import arithmetic, integration
+from smoke import arithmetic, combine_leaf, integration
 from synthesis import synthesis
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("case", choices=("smoke", "synthesis", "parameters"))
+    parser.add_argument("case", choices=("smoke", "synthesis", "parameters", "mutation"))
+    parser.add_argument("--mutation", choices=tuple(MUTATIONS))
+    parser.add_argument("--geometry", choices=("tiny64", "default512", "upper"), default="tiny64")
+    parser.add_argument("--leaves", action="store_true")
     parser.add_argument("--repair-of")
     args = parser.parse_args()
     run = Run(Path(__file__).resolve().parents[1],
@@ -27,13 +31,18 @@ def main():
             run.command(["iverilog", "-V"])
             run.command(["vvp", "-V"])
             arithmetic(run, compact=True)
+            combine_leaf(run)
             integration(run, tiny=True)
         elif args.case == "parameters":
             run.command(["iverilog", "-V"])
             run.command(["vvp", "-V"])
             parameters(run)
+        elif args.case == "mutation":
+            if args.mutation is None:
+                raise ValueError("a bounded mutation probe requires --mutation")
+            mutations(run, names=(args.mutation,))
         else:
-            synthesis(run, geometries=("tiny64",), leaves=False)
+            synthesis(run, geometries=(args.geometry,), leaves=args.leaves)
     except Exception as failure:
         error = failure
     run.finish(error)

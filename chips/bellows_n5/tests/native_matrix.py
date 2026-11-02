@@ -21,9 +21,9 @@ PARAMETERS = ("DATA_WIDTH", "MAX_PACKET_BYTES", "MAX_SG", "QPS",
               "EXPERTS", "MAX_K", "TOKENS", "MAX_TOKEN_ELEMS")
 
 
-def build(run, geometry, rtl_root=None):
+def build(run, geometry, rtl_root=None, label=None):
     root = rtl_root or run.root
-    directory = run.output / ("native-" + geometry)
+    directory = run.output / ("native-" + (label or geometry))
     directory.mkdir()
     values = GEOMETRIES[geometry]
     top = (root / "rtl/bellows_n5_top.sv").read_text()
@@ -54,7 +54,7 @@ def build(run, geometry, rtl_root=None):
 
 
 def stimulus(directory, geometry, seed, token_count=32):
-    _, _, _, qps, experts, max_k, _, max_elems = GEOMETRIES[geometry]
+    _, _, _, qps, experts, max_k, slots, max_elems = GEOMETRIES[geometry]
     rng = random.Random(seed)
     tokens = {}
     with (directory / "tokens.txt").open("x") as stream:
@@ -64,7 +64,7 @@ def stimulus(directory, geometry, seed, token_count=32):
             fmt = index & 1
             lengths = [1, max_elems, min(max_elems, 128), min(max_elems, 129)]
             count = lengths[(index // 2) % len(lengths)]
-            k = 1 + ((index // 2) % max_k)
+            k = max_k if index < slots else 1 + ((index // 2) % max_k)
             scores = [rng.randrange(-32768, 32768) for _ in range(experts)]
             if index % 4 == 0:
                 scores = [-5] * experts
@@ -74,6 +74,12 @@ def stimulus(directory, geometry, seed, token_count=32):
             activation = bytes(rng.randrange(256) for _ in range(count << fmt))
             results = [bytes(rng.randrange(256) for _ in range(count << fmt))
                        for _ in range(experts)]
+            if index == 5 and max_k >= 3:
+                scores = [-5] * experts
+                weights = [0x3f80] * experts
+                samples = [0x4780, 0xc780, 0x3f80]
+                results = [samples[e % 3].to_bytes(2, "little") * count
+                           for e in range(experts)]
             ids = sorted(range(experts), key=lambda e: (-scores[e], e))[:k]
             expected = bytearray()
             for j in range(count):
@@ -91,7 +97,7 @@ def stimulus(directory, geometry, seed, token_count=32):
     return tokens
 
 
-def packet_stimulus(directory, geometry, seed):
+def packet_stimulus(directory, geometry, seed, compact=False):
     qps = GEOMETRIES[geometry][3]
     bases = [0xffff80] * qps
     committed = [set() for _ in range(qps)]
@@ -156,7 +162,11 @@ def packet_stimulus(directory, geometry, seed):
                             token=(0x5a000000 | psn) if identity else 0,
                             psn=psn if identity else 0, sack=sack, memory=memory))
 
-    for block in range(4):
+    if compact:
+        append(0, bases[0] + 1)
+        append(0, bases[0] + 1)
+        append(0, bases[0] + 256)
+    for block in range(0 if compact else 4):
         qp = block % qps
         base = bases[qp]
         offsets = list(range(1, 256))
@@ -164,22 +174,23 @@ def packet_stimulus(directory, geometry, seed):
         for offset in offsets:
             append(qp, base + offset)
         append(qp, base)
-    for replay in range(256):
+    for replay in range(0 if compact else 256):
         qp = replay % qps
         append(qp, bases[qp] - 1)
-    for qp in range(qps):
+    for qp in range(0 if compact else qps):
         for distance in (256, (1 << 23) - 1, 1 << 23):
             append(qp, bases[qp] + distance)
-    for variant in ("cancel", "rkey", "endpoint", "reserved", "crc", "checksum"):
-        append(0, bases[0], variant=variant)
-    append(0, bases[0])
+    if not compact:
+        for variant in ("cancel", "rkey", "endpoint", "reserved", "crc", "checksum"):
+            append(0, bases[0], variant=variant)
+        append(0, bases[0])
     (directory / "packets.txt").write_text(
         str(len(records)) + "\n" + "\n".join(record["frame"] for record in records) + "\n")
     (directory / "packet-expectations.json").write_text(json.dumps(records, indent=2) + "\n")
     return records
 
 
-def validate_packets(directory, records):
+def validate_packets(directory, records, thresholds=True):
     expected_events = [(r["status"], r["kind"], r["qp"], r["token"], r["psn"])
                        for r in records]
     expected_sacks = [r["sack"] for r in records if r["sack"] is not None]
@@ -213,8 +224,9 @@ def validate_packets(directory, records):
     counts = dict(committed_packets=len(memory), duplicates=sum(r["status"] == 1 for r in records),
                   ahead=sum(r["status"] == 2 for r in records), compared_sacks=len(sacks),
                   cancelled=sum(r["status"] == 7 for r in records), events=len(events))
-    if counts["committed_packets"] < 1024 or counts["duplicates"] < 256:
+    if thresholds and (counts["committed_packets"] < 1024 or counts["duplicates"] < 256):
         raise AssertionError("missing receive-window public comparisons")
+    counts["receive_probe_events"] = counts.pop("events")
     return counts
 
 
@@ -229,7 +241,8 @@ def validate(directory, geometry, tokens, token_count=32):
     partial_jobs, partial_combines = {}, {}
     counts = dict(network_packets=0, dispatch_packets=0, return_packets=0,
                   sack_packets=0, events=0, peer_sacks=0, expert_jobs=0,
-                  combined_bytes=0, completions=0)
+                  combined_bytes=0, completions=0, invalid_expert_response=0,
+                  malformed_expert_response=0)
 
     def check(condition, message):
         if not condition:
@@ -337,8 +350,16 @@ def validate(directory, geometry, tokens, token_count=32):
             counts["completions"] += 1
         elif kind == "EVT":
             status, packet_kind = int(fields[3]), int(fields[4])
-            check(status == 0 and packet_kind in {2, 3, 4},
+            check((status == 0 and packet_kind in {2, 3, 4}) or
+                  (status in {7, 9} and packet_kind == 3),
                   context + ": event outcome")
+            if status == 7:
+                check(all(int(v) == 0 for v in fields[5:]), context + ": untrusted response identity")
+                counts["invalid_expert_response"] += 1
+            if status == 9:
+                check(int(fields[6]) in tokens and int(fields[7]) == 0,
+                      context + ": malformed response identity")
+                counts["malformed_expert_response"] += 1
             counts["events"] += 1
         elif kind == "PEER":
             counts["peer_sacks"] += 1
@@ -351,6 +372,8 @@ def validate(directory, geometry, tokens, token_count=32):
     check(counts["expert_jobs"] == 2 * sum(t["k"] for t in tokens.values()),
           "missing complete expert jobs")
     check(len(completions) == 2 * token_count, "missing token completions")
+    check(counts["invalid_expert_response"] == counts["malformed_expert_response"] == 2,
+          "missing retryable expert-response failures")
     check(not any(expected_sacks) and counts["peer_sacks"] == counts["sack_packets"] ==
           2 * expected_fragments, "missing SACK/peer comparisons")
     return counts

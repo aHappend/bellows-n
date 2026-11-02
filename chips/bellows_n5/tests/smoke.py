@@ -4,7 +4,7 @@ from pathlib import Path
 import re
 import shutil
 
-from oracle import arithmetic_vectors, bf16_add, bf16_mul, reflected_crc
+from oracle import arithmetic_vectors, bf16_add, bf16_mul, combine, reflected_crc
 from prepare_integration import fixtures, top_testbench, write_fixtures
 from prepare_reorder import vectors
 
@@ -57,8 +57,39 @@ def arithmetic(run, compact=False, rtl_root=None):
     run.summary["comparisons"]["arithmetic"] = count
 
 
-def integration(run, widths=(64, 512), compiled=False, tiny=False):
-    for case in ("moe", "write"):
+def combine_leaf(run, compiled=False):
+    path = run.output / "combine-vectors.txt"
+    records = [(0, [0x3f80], [value]) for value in range(256)]
+    corners = [0, 0x8000, 1, 0x7f, 0x80, 0x3f80, 0xbf80,
+               0x3f81, 0x7f7f, 0x7f80, 0xff80, 0x7f81, 0x7fc0]
+    for index, a in enumerate(corners):
+        for b in corners:
+            records.append((1, [a, b, 0x3f80],
+                            [b, a, corners[(index + 3) % len(corners)]]))
+    with path.open("x") as stream:
+        for format, weights, samples in records:
+            packed_weights = sum(v << (16 * i) for i, v in enumerate(weights))
+            packed_samples = sum(v << (16 * i) for i, v in enumerate(samples))
+            expected = combine(weights, samples, fp8=format == 0)
+            stream.write(f"{format} {len(weights)} {packed_weights:016x} "
+                         f"{packed_samples:016x} {expected:04x}\n")
+    rtl = ["tests/combine_tb.sv", "rtl/bellows_n5_combine.sv",
+           "rtl/bellows_n5_bf16_mul.sv", "rtl/furnace_reduce_alu.sv",
+           "rtl/furnace_reduce_lane.sv"]
+    text = (compiled_sv(run, "combine", "combine_tb", rtl,
+                        plusargs=["+vectors=" + run.relative(path)]) if compiled else
+            icarus(run, "combine", "combine_tb", rtl, ["+vectors=" + run.relative(path)]))
+    match = re.search(r"COMBINE compared=(\d+)", text)
+    if not match or int(match[1]) != len(records):
+        raise AssertionError("missing exhaustive FP8/ordered combine comparisons")
+    run.summary["comparisons"]["fp8_encodings"] = 256
+    run.summary["comparisons"]["combine"] = len(records)
+
+
+def integration(run, widths=(64, 512), compiled=False, tiny=False, rtl_root=None,
+                cases=("moe", "write")):
+    rtl_root = rtl_root or run.root
+    for case in cases:
         directory = run.output / ("smoke-" + case)
         directory.mkdir()
         if case == "moe":
@@ -73,7 +104,7 @@ def integration(run, widths=(64, 512), compiled=False, tiny=False):
                 run.root, width, "integration_body.svh" if case == "moe" else "write_body.svh",
                 parameters=parameters))
             rtl = [run.relative(testbench)] + [
-                run.relative(p) for p in sorted(run.root.glob("rtl/*.sv"))]
+                run.relative(p) for p in sorted(rtl_root.glob("rtl/*.sv"))]
             args = ["+fixture=" + run.relative(directory)]
             text = (compiled_sv(run, f"integration-{case}-{width}", "integration_tb",
                                 rtl, plusargs=args) if compiled else

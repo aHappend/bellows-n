@@ -51,12 +51,13 @@ class Run:
         index = len(self.receipt["commands"])
         entry = {"argv": [str(v) for v in argv],
                  "cwd": self.relative(cwd or self.root), "timeout_s": timeout,
-                 "start_utc": utc(), "stdout": f"command-{index}.stdout.txt",
-                 "stderr": f"command-{index}.stderr.txt"}
+                 "start_utc": utc(),
+                 "stdout": self.relative(self.output / f"command-{index}.stdout.txt"),
+                 "stderr": self.relative(self.output / f"command-{index}.stderr.txt")}
         self.receipt["commands"].append(entry)
         before = time.monotonic()
-        with (self.output / entry["stdout"]).open("xb") as stdout, (
-                self.output / entry["stderr"]).open("xb") as stderr:
+        with (self.root / entry["stdout"]).open("xb") as stdout, (
+                self.root / entry["stderr"]).open("xb") as stderr:
             process = subprocess.Popen(entry["argv"], cwd=cwd or self.root,
                                        stdout=stdout, stderr=stderr, env=env)
             try:
@@ -79,8 +80,8 @@ class Run:
         if entry["timed_out"] or entry["exit_code"] not in allowed:
             raise RuntimeError(f"tool execution failed: command {index}, "
                                f"exit={entry['exit_code']}, timeout={entry['timed_out']}; "
-                               f"see {self.relative(self.output)}/{entry['stderr']}")
-        return entry, (self.output / entry["stdout"]).read_text(errors="replace")
+                               f"see {entry['stderr']}")
+        return entry, (self.root / entry["stdout"]).read_text(errors="replace")
 
     def compress(self, path):
         path = Path(path)
