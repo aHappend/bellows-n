@@ -9,11 +9,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from execution import Execution, fresh
 import alu_checks
 import dma_checks
+import compatibility_checks
 import integrated_checks
 import legacy_leaf_checks
 import mutation_checks
 import parser_checks
 import qos_checks
+import reproduction_checks
 import structural_checks
 from reference import self_check
 
@@ -23,7 +25,8 @@ def main():
     arguments.add_argument("--probe", choices=("parser", "alu", "alu-matrix", "integrated", "protocol",
                                              "structural", "stale-address", "stale-address-icarus",
                                              "floating-mutations", "legacy-leaves", "legacy-mutations",
-                                             "qos", "packet-mutations", "boundaries", "dma"),
+                                             "qos", "packet-mutations", "boundaries", "dma",
+                                             "compatibility", "reproduction"),
                            help="bounded preparation diagnostic")
     arguments.add_argument("--repair-of", action="append", default=[],
                            help="project-relative retained failure receipt")
@@ -69,6 +72,11 @@ def main():
         elif options.probe == "dma":
             coverage = {"dma": [dma_checks.run(execution, width=width)
                                 for width in (64, 512)]}
+        elif options.probe == "compatibility":
+            coverage = {"compatibility": [
+                compatibility_checks.run(execution, width=width) for width in (64, 512)]}
+        elif options.probe == "reproduction":
+            coverage = {"reproduction": reproduction_checks.run(execution)}
         else:
             coverage = parser_checks.run(execution)
             coverage.update(alu_checks.run(execution, widths=(64,), seeds=(17,),
@@ -89,6 +97,9 @@ def main():
             coverage["qos"] = qos_checks.run(execution)
             coverage.update(mutation_checks.run_packet(execution))
             coverage["dma"] = [dma_checks.run(execution, width=width) for width in (64, 512)]
+            coverage["compatibility"] = [
+                compatibility_checks.run(execution, width=width) for width in (64, 512)]
+            coverage["reproduction"] = reproduction_checks.run(execution)
     except (AssertionError, RuntimeError, FileNotFoundError) as error:
         receipt = execution.finish("failed", str(error), repair_of=options.repair_of)
         print(f"FAILED {error}\nReceipt: {receipt}", flush=True)
