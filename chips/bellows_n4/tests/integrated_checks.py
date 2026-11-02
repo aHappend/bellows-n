@@ -322,7 +322,10 @@ begin
     input_fire=s_axis_tvalid && s_axis_tready;
     qp_fire=qp_cfg_valid && qp_cfg_ready;
     coll_fire=coll_cfg_valid && coll_cfg_ready;
-    if ((^OUTPUT_BUNDLE) === 1'bx) $fatal(1,"TOP_ACTIVE_XZ frame=%0d",frame_id);
+    if ((^OUTPUT_BUNDLE) === 1'bx) begin
+        XZ_DIAGNOSTICS
+        $fatal(1,"TOP_ACTIVE_XZ frame=%0d",frame_id);
+    end
     if (block_axis && (!m_axis_tvalid || {m_axis_tdata,m_axis_tkeep,m_axis_tlast} !== held_axis))
         $fatal(1,"LEGACY_PAYLOAD_STABILITY");
     if (block_crc && (!m_crc_valid || {m_crc32c,m_crc64_nvme,m_crc_mismatch,m_crc_protocol_error} !== held_crc))
@@ -611,6 +614,10 @@ def bench(folder, scenario):
     (folder / "commands.txt").write_text("\n".join(calls) + "\n")
     all_outputs = "{" + ",".join(OUTPUTS) + "}"
     body = BODY.replace("RESET_BUNDLE", all_outputs).replace("OUTPUT_BUNDLE", all_outputs)
+    body = body.replace("XZ_DIAGNOSTICS", "\n".join(
+        f'if ((^{name}) === 1\'bx) $display("UNKNOWN_OUTPUT {name}=%h '
+        f'axis=%b wr=%b crc=%b meta=%b", {name},m_axis_tvalid,wr_valid,m_crc_valid,m_meta_valid);'
+        for name in OUTPUTS))
     return (
         "`timescale 1ns/1ps\nmodule integrated_tb;\nparameter W=64;\n"
         "parameter MP=9216, MS=16, Q=8;\nlocalparam B=W/8;\n" + declarations() +

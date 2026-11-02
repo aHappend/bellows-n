@@ -162,7 +162,8 @@ module furnace_psn_tracker #(
                         next_open<=op==8'h06;
                         result_complete<=op!=8'h06;
                     end else if (op==8'h07 || op==8'h08 || op==8'h09) begin
-                        result_address<=message_addr[cursor]+{32'b0,offset[cursor]};
+                        result_address<=message_open[cursor] ?
+                                        message_addr[cursor]+{32'b0,offset[cursor]} : 64'b0;
                         message_end<={1'b0,message_addr[cursor]}+{33'b0,total[cursor]};
                         packet_end<={1'b0,message_addr[cursor]}+
                                     {33'b0,offset[cursor]}+{51'b0,payload_length};

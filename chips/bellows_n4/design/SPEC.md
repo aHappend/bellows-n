@@ -123,6 +123,11 @@ requires none. Retain initial RETH and committed offset. Validate widened
 address arithmetic, key, region, entire packet length and message accounting
 before writes. LAST exactly finishes the declared message; earlier valid
 segments survive a later rejection. Rejected packets leave state unchanged.
+For MIDDLE/LAST (including LAST+IMM), the event address is the retained initial
+RETH address plus committed offset only while a message is open. Without an
+open message, reject with status 7 and report address zero, never a stale
+address from a completed message. Open-message addresses, protection checks,
+PSN/state commitment and ACK/NAK behavior are unchanged.
 
 ACK output is the actual sixteen-byte BTH+AETH, byte zero in bits 7:0:
 opcode 11, flags/version zero, P_Key ffff, reserved zero, remote QPN,
