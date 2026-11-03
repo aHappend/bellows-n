@@ -1,0 +1,19 @@
+Fitter Status : Successful - Thu Oct 29 10:09:36 2026
+Quartus Prime Version : 17.1.0 Build 590 10/25/2017 SJ Standard Edition
+Revision Name : top
+Top-level Entity Name : furnace_x3_top
+Family : Arria 10
+Device : 10AX115N2F45E1SG
+Timing Models : Final
+Logic utilization (in ALMs) : 121,873 / 427,200 ( 29 % )
+  * Logic utilization warning : A large number of ALMs contain virtual pins and count towards logic utilization
+  * ALMs containing virtual pins : 2,149 / 427,200 ( < 1 % )
+Total registers : 95294
+Total pins : 0 / 992 ( 0 % )
+Total virtual pins : 4,296
+Total block memory bits : 94,832 / 55,562,240 ( < 1 % )
+Total RAM Blocks : 45 / 2,713 ( 2 % )
+Total DSP Blocks : 0 / 1,518 ( 0 % )
+Total HSSI RX channels : 0 / 48 ( 0 % )
+Total HSSI TX channels : 0 / 48 ( 0 % )
+Total PLLs : 0 / 112 ( 0 % )
