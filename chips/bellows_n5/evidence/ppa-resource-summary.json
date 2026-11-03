@@ -1,19 +1,27 @@
 {
   "chip": "Bellows-N5",
   "fitter_resources": {
-    "total_registers": 239476,
+    "alms_used": 255519,
+    "alms_total": 427200,
+    "alms_pct": "60 %",
+    "total_registers": 239444,
     "block_memory_bits": 914000,
+    "m20k_ram_blocks": 0,
+    "m20k_ram_blocks_total": 2713,
     "dsp_blocks": 1,
     "virtual_pins": 12845
   },
   "timing": {
     "device": "10AX115N2F45E1SG",
-    "netlist_mode": null,
+    "netlist_mode": "post_map",
     "target_frequency_mhz": 100.0,
-    "fmax_mhz": null,
-    "critical_path_delay_ns": null,
-    "wns_setup_ns": null,
-    "wns_hold_ns": null
+    "fmax_mhz": 203.05,
+    "critical_path_delay_ns": 4.925,
+    "wns_setup_ns": 5.075,
+    "wns_hold_ns": -0.205
   },
-  "verification_tiers": {}
+  "verification_tiers": {
+    "L3_board_hil": "L3_BRIDGE_CONNECTIVITY_PROBE_ONLY",
+    "L3_note": "Catapult PCIe BAR0 hardware bridge connectivity probe (reg 57) only; per-chip bitstream flash and on-board workload vector execution require fpga/board_hil.json role wrapper."
+  }
 }
