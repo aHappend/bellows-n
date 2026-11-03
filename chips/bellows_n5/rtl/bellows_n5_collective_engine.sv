@@ -48,6 +48,7 @@ module furnace_collective_engine #(
     localparam integer B=DATA_WIDTH>>3;
     localparam integer SHIFT=(DATA_WIDTH==64) ? 3 : 6;
     localparam integer ROWS=(MAX_PACKET_BYTES+B-1)>>SHIFT;
+    localparam integer ROW_AW=(ROWS>1)?$clog2(ROWS):1;
     localparam IDLE=0, STREAM=1, DRAIN=2, REPLAY=3, DONE=4, COMPLETION=5;
     reg [2:0] state;
     reg enabled, cfg_pending, completion_pending;
@@ -118,12 +119,19 @@ module furnace_collective_engine #(
     wire replay_advance=state==REPLAY && (!replay_valid || wr_ready);
     wire replay_read=replay_advance && !replay_issued_last;
     wire accumulation_read=input_fire && next_rank!=0;
+    wire [13:0] memory_write_row_full=seed_write ? input_row : output_row;
+    wire [13:0] memory_read_row_full=accumulation_read ? input_row : replay_row;
+    wire [ROW_AW-1:0] memory_write_row=memory_write_row_full;
+    wire [ROW_AW-1:0] memory_read_row=memory_read_row_full;
+    wire [DATA_WIDTH-1:0] memory_write_data=seed_write ? in_data : alu_data;
+    wire memory_write_enable=(seed_write || reduced_write) &&
+                             memory_write_row_full<ROWS;
+    wire memory_read_enable=(accumulation_read || replay_read) &&
+                            memory_read_row_full<ROWS;
 
     always @(posedge clk) begin
-        if (seed_write) accumulator[input_row]<=in_data;
-        else if (reduced_write) accumulator[output_row]<=alu_data;
-        if (accumulation_read) accumulator_q<=accumulator[input_row];
-        else if (replay_read) accumulator_q<=accumulator[replay_row];
+        if (memory_write_enable) accumulator[memory_write_row]<=memory_write_data;
+        if (memory_read_enable) accumulator_q<=accumulator[memory_read_row];
     end
     furnace_reduce_alu #(.DATA_WIDTH(DATA_WIDTH)) reduce_alu (
         .clk(clk), .rst_n(rst_n), .in_valid(input_pending),

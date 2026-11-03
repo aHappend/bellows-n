@@ -159,6 +159,48 @@ banks every stream byte lane into a separate unpacked array with synchronous
 registered reads and per-lane write enables. RAM arrays are never reset.
 Active/presented/fragment/completion state independently authorizes observations.
 
+### Physical memory-port repair
+
+The original native Quartus attempt timed out in periphery planning, followed
+by TimeQuest exit 3 because planning had not completed. Its retained receipt is
+`.vulcan/engineering/run-0001/quartus-sta.json`; the corresponding
+`quartus_sta_work/top.map.rpt` reports an estimated 433614 ALMs and 528740
+registers, not fitted PPA or a measured timing violation. No setup/hold paths
+or recognized clocks were extracted. The four portable L1 passes before this
+repair describe the earlier source version, not validation of the changes below.
+
+The report's lines 2022..2025 show activation RAM using 16896 registers and
+job/response/return RAM each using 66048 registers, with no block-memory bits.
+The same payload RAM module's WRITE instance inferred 524288 block-memory bits.
+Payload RAM now derives an explicit row-address width from its actual row
+count. It range-checks the full shifted byte address before enabling a read or
+per-lane write, then indexes the array with only that bounded row address.
+This removes unused upper index bits without allowing invalid addresses to
+alias live storage. Singleton and non-power-of-two row counts remain supported.
+An invalid read holds the previous registered output; an invalid write performs
+no update. Existing byte-lane storage and full token/job capacities are retained.
+
+The collective accumulator's uninferred memory is also present in the supplied
+parent; this is an inherited physical implementation limitation, not an X5
+functional regression. Its prior reads were already clocked. The repair instead
+consolidates the branch-specific accesses into one read address/enable and one
+write address/data/enable, each range-checked before row-address narrowing.
+Seed writes retain priority over reduction writes, and accumulation reads
+retain priority over replay reads. Both ports access the array only in the
+reset-free clocked memory process. Reads still return the pre-write word after
+the accepting edge; disabled reads and replay stalls hold the prior result.
+No arithmetic latency, public interface, reset ownership or replay sequencing
+is changed. The read-only parent and parallel TCAM arrays are untouched.
+
+These are inference-directed source repairs, not evidence that Quartus now
+infers M20K storage or fits the target. Fresh existing L1 checks and runtime
+physical gates must establish per-instance M20K utilization, clock recognition,
+setup and hold analysis, and eventual board acceptance. The prior virtual-pin
+clock warning 15725 requires supported execution-configuration diagnosis;
+runtime-owned constraints are not changed here. Packet RX/TX's earlier
+93852/51582 combinational ALUT counts remain a resource risk to reassess from
+the fresh mapping results; no speculative packet datapath rewrite is included.
+
 The combine arbiter selects complete contexts round-robin, issues the combiner
 with captured selected-rank weights, and services its `read_valid/ready`,
 `read_rank`, `read_elem` channel from return RAM. A registered sample response

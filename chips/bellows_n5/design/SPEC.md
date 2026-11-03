@@ -65,6 +65,8 @@ State and outputs described below are **post-edge**, after nonblocking updates.
 | Cancelled commit | Do not modify bitmap/base. Snapshot status is 3. |
 | Reset versus memory write | Reset invalidates ownership; stale RAM bytes cannot become observable. No bulk RAM reset is required. |
 | Same-word RAM read/write | Synchronous reads sample the pre-write word. Ownership scheduling prevents exposing an uncommitted collision. |
+| RAM row bounds | Compare the full row index against the actual row count before narrowing. An out-of-range write cannot alias a valid row; an out-of-range read leaves the registered result unchanged. |
+| Collective RAM arbitration | Seed write has priority over reduced write; accumulation read has priority over replay read. Select each port's address/data before the memory access, without adding a pipeline stage. |
 | Allocation versus release | A slot is allocatable only after its prior ownership release edge, never speculatively on that edge. |
 
 Top-K captures at E0. Each rank scans exactly EXPERTS ascending candidates on
@@ -272,9 +274,12 @@ compiler trees and account/session state are not deliverable sources. Fresh
 receipts must record content hashes of this manifest and actual artifacts;
 there is currently no accepted X5 result to cite.
 
-The 24 inherited RTL filenames are enumerated in `GENERATIONAL_HANDOFF.md`;
-their deliverable copies retain the supplied parent contents. The additional
-design sources are:
+The 24 inherited RTL filenames are enumerated in `GENERATIONAL_HANDOFF.md`.
+Their deliverable copies retain the supplied parent contents except for the
+documented memory-port repair in `furnace_collective_engine.sv`; its public
+interface and arithmetic/control contract are unchanged. The read-only parent
+is not modified. See `ARCHITECTURE.md` for the retained physical failure and
+the repair's pending inference/timing evidence. The additional design sources are:
 
 | File in rtl/ | Function |
 |---|---|

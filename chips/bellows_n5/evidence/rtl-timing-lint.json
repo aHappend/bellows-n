@@ -1,6 +1,6 @@
 {
   "gate": "rtl-timing-lint",
-  "timestamp_utc": "2026-11-03T02:57:22.202786+00:00",
+  "timestamp_utc": "2026-11-03T03:00:27.388810+00:00",
   "root": "/data/sufeng/furnace-x5-line/workspace/project",
   "status": "passed",
   "max_comb_div_width": 0,
@@ -8,7 +8,7 @@
   "auto_sanitized_nomem2reg_files": [],
   "source_sha256": {
     "rtl/furnace_classifier64.sv": "44c72460408feab31df402f7b116a1ed6f009e31373a72977df1a79c30544af9",
-    "rtl/furnace_collective_engine.sv": "3eed2c0852b1e1980a2c597b9bd4e2795af3d62de12de26b44b4dbdbfefe93e9",
+    "rtl/furnace_collective_engine.sv": "984473175cac099afd05b0a73da7a61f720d22766c2abd2a992ee115f1e6b6f0",
     "rtl/furnace_crc_beat_pipeline.sv": "f3befc035ae51dfc3394f0c21ef42a316247c18745e0c96354a1013565f5cf64",
     "rtl/furnace_crc_linear.sv": "03678c27c3cbee43abb181b54775e6c65c11734c6eab60bf87730b01d0b6b3fb",
     "rtl/furnace_crc_output_stage.sv": "4e0c2ea87836334980aa9d1f4016c130109b244f713d0be46f33d95b35b83072",
@@ -37,7 +37,7 @@
     "rtl/furnace_x5_moe_router.sv": "cb56e93866e311bcf4367588c4fe0ae9738ce4f00d05e26e57cfbb5392e464d6",
     "rtl/furnace_x5_packet_rx.sv": "1db4e8bd034e0b2c0ac0d165c65a1676484b161fa40fb54f4550248fd2c2c584",
     "rtl/furnace_x5_packet_tx.sv": "e1ad9ec07c932bee0b7050fd99d71e3e8c134b5e14954b58cf0ab73fabbf104e",
-    "rtl/furnace_x5_payload_ram.sv": "ac6579ceb6d24c21cd517f21bbeabcbeba03403948e616309f3518a56730a55e",
+    "rtl/furnace_x5_payload_ram.sv": "749755406d7ebaaf73407421e786def4b5fb55e6b44894ea27469edf273d338a",
     "rtl/furnace_x5_qp_table.sv": "6fcfbe1779c8ccd7b9f786ba6f14fd211b732c720a78e34e49df8fce6ba552df",
     "rtl/furnace_x5_reorder.sv": "e2ebcbbe701c1613b165b8b107562963c9f42518f9637998b44d3b42607bab67",
     "rtl/furnace_x5_sack.sv": "142e92a155e03a0f4408506d9ba5a0ef7da3762ea08f8d0dd0c59d30e44f94da",
