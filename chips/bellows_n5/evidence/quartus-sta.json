@@ -1,0 +1,71 @@
+{
+  "gate": "quartus-sta",
+  "timestamp_utc": "2026-11-03T02:57:20.547355+00:00",
+  "project_dir": "/data/sufeng/furnace-x5-line/workspace/project/.vulcan/engineering/run-0001/quartus_sta_work",
+  "revision": "top",
+  "clock_filter": "clk_main",
+  "min_setup_slack_ns": 0.0,
+  "min_hold_slack_ns": 0.0,
+  "status": "failed",
+  "map_summary": {
+    "exists": true,
+    "path": "/data/sufeng/furnace-x5-line/workspace/project/.vulcan/engineering/run-0001/quartus_sta_work/top.map.rpt",
+    "error_count": 0,
+    "errors": [],
+    "lpm_divide_error_count": 0,
+    "lpm_divide_errors": [],
+    "warning_10268_count": 0,
+    "warning_10268": [],
+    "uninferred_ram_count": 4,
+    "uninferred_rams": [
+      "Info (276007): RAM logic \"furnace_x4_top:g_legal.legacy_core|furnace_roce_rx:g_legal.roce_rx|furnace_collective_engine:collective_engine|accumulator\" is uninferred due to asynchronous read logic File: /data/sufeng/furnace-x5-line/workspace/project/.vulcan/engineering/run-0001/quartus_sta_work/rtl_staged/furnace_collective_engine.sv Line: 64",
+      "Info (276007): RAM logic \"furnace_x4_top:g_legal.legacy_core|furnace_x3_top:g_legal.legacy_core|furnace_x2_top:g_legal.x2_core|furnace_classifier64:g_legal.classifier|values\" is uninferred due to asynchronous read logic File: /data/sufeng/furnace-x5-line/workspace/project/.vulcan/engineering/run-0001/quartus_sta_work/rtl_staged/furnace_classifier64.sv Line: 16",
+      "Info (276007): RAM logic \"furnace_x4_top:g_legal.legacy_core|furnace_x3_top:g_legal.legacy_core|furnace_x2_top:g_legal.x2_core|furnace_classifier64:g_legal.classifier|masks\" is uninferred due to asynchronous read logic File: /data/sufeng/furnace-x5-line/workspace/project/.vulcan/engineering/run-0001/quartus_sta_work/rtl_staged/furnace_classifier64.sv Line: 17",
+      "Info (276007): RAM logic \"furnace_x4_top:g_legal.legacy_core|furnace_x3_top:g_legal.legacy_core|furnace_x2_top:g_legal.x2_core|furnace_classifier64:g_legal.classifier|actions\" is uninferred due to asynchronous read logic File: /data/sufeng/furnace-x5-line/workspace/project/.vulcan/engineering/run-0001/quartus_sta_work/rtl_staged/furnace_classifier64.sv Line: 18"
+    ]
+  },
+  "sta_summary": {
+    "exit_code": 3,
+    "netlist_mode": null,
+    "clocks": [],
+    "wns_setup_ns": null,
+    "wns_hold_ns": null,
+    "unconstrained_setup_paths": 0,
+    "unconstrained_functional_endpoints": 0,
+    "unapproved_timing_exceptions": 0,
+    "failing_setup_count": 0,
+    "failing_hold_count": 0,
+    "setup_paths": [],
+    "hold_paths": [],
+    "stderr_tail": [
+      "------------------------------------------------",
+      "ERROR: Can't run TimeQuest Timing Analyzer (quartus_sta) -- Periphery placement (quartus_fit --plan) failed or was not run. Run I/O Assignment Analysis (quartus_fit --plan) successfully before running the TimeQuest analyzer (create_timing_netlist -post_map).",
+      "",
+      "    while executing",
+      "\"create_timing_netlist -post_map\"",
+      "    (file \"vulcan_sta_gkdt2evn.tcl\" line 2)",
+      "------------------------------------------------"
+    ]
+  },
+  "detail": "quartus_sta exited with code 3; No setup timing paths extracted from quartus_sta",
+  "fit_mode": "plan_plus_post_map_sta",
+  "fit_timed_out": true,
+  "quartus_slot_telemetry": {
+    "slot_index": 2,
+    "max_slots": 6,
+    "slot_wait_s": 0.001
+  },
+  "top_module": "furnace_x5_top",
+  "clock_port": "clk",
+  "clock_period_ns": 10.0,
+  "target_frequency_mhz": 100.0,
+  "fitter_resource_summary": {
+    "total_registers": 528740,
+    "block_memory_bits": 627280,
+    "dsp_blocks": 1,
+    "virtual_pins": 12845
+  },
+  "parameters": {},
+  "source_sha256": "8ea8a7d9fb348a6c362863338d62c711059c53119493bc89f6b176520c147f8e",
+  "applicable": true
+}
