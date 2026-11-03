@@ -2,6 +2,7 @@
 
 from pathlib import Path
 import re
+import random
 import shutil
 
 from oracle import (arithmetic_vectors, bf16_add, bf16_mul, combine, ethernet_frame,
@@ -21,13 +22,16 @@ def compiled_sv(run, name, top, rtl, parameters=(), plusargs=()):
     directory = run.output / name
     directory.mkdir()
     obj = directory / "compile-obj"
-    run.command(["verilator", "--binary", "--timing", "--build", "-j", "4",
-                 "-Wno-fatal", "--top-module", top, "--Mdir", run.relative(obj),
-                 *parameters, *rtl])
     executable = directory / "simulation"
-    shutil.copyfile(obj / ("V" + top), executable)
-    executable.chmod(0o755)
-    shutil.rmtree(obj)
+    try:
+        run.command(["verilator", "--binary", "--timing", "--build", "-j", "4",
+                     "-Wno-fatal", "--top-module", top, "--Mdir", run.relative(obj),
+                     *parameters, *rtl])
+        shutil.copyfile(obj / ("V" + top), executable)
+        executable.chmod(0o755)
+    finally:
+        if obj.is_dir():
+            shutil.rmtree(obj)
     return run.command([run.relative(executable), *plusargs])[1]
 
 
@@ -111,6 +115,41 @@ def resets(run):
     run.summary["comparisons"]["reset_ownership_phases"] = 7
 
 
+def topk(run):
+    rng = random.Random(203)
+    for experts in (1, 3, 8, 16):
+        max_k = min(4, experts)
+        path = run.output / f"topk-{experts}.txt"
+        count = 0
+        with path.open("x") as stream:
+            for case in range(32):
+                scores = ([-32768] * experts if case == 0 else
+                          [7] * experts if case == 1 else
+                          [rng.randrange(-32768, 32768) for _ in range(experts)])
+                enabled = list(range(experts)) if case < 2 else [
+                    e for e in range(experts) if rng.randrange(3)]
+                if not enabled:
+                    enabled = [experts - 1]
+                for k in range(1, min(len(enabled), max_k) + 1):
+                    selected = sorted(enabled, key=lambda e: (-scores[e], e))[:k]
+                    expected = sum(e << (16 * rank) for rank, e in enumerate(selected))
+                    packed = sum((score & 65535) << (16 * e) for e, score in enumerate(scores))
+                    mask = sum(1 << e for e in enabled)
+                    stream.write(f"{mask:x} {packed:x} {k} {expected:x} {k*(experts+1)}\n")
+                    count += 1
+        executable = run.output / f"topk-{experts}.vvp"
+        run.command(["iverilog", "-g2012", "-Wall", "-s", "topk_tb",
+                     f"-Ptopk_tb.EXPERTS={experts}", f"-Ptopk_tb.MAX_K={max_k}",
+                     "-o", run.relative(executable), "tests/topk_tb.sv",
+                     "rtl/bellows_n5_topk.sv"])
+        text = run.command(["vvp", run.relative(executable),
+                            "+vectors=" + run.relative(path)], timeout=600)[1]
+        match = re.search(r"TOPK compared=(\d+)", text)
+        if not match or int(match[1]) != count:
+            raise AssertionError("missing exact-latency Top-K comparisons")
+        run.summary["runs"].append(dict(topk_experts=experts, compared=count))
+
+
 def integration(run, widths=(64, 512), compiled=False, tiny=False, rtl_root=None,
                 cases=("moe", "write")):
     rtl_root = rtl_root or run.root
@@ -151,13 +190,16 @@ def tracker(run, qps_values=(1, 3, 8), seeds=(17, 89, 203), compact=False):
             directory = run.output / f"tracker-{qps}"
             directory.mkdir()
             obj = directory / "compile-obj"
-            run.command(["verilator", "--binary", "--timing", "--build", "-j", "4",
-                         "-Wno-fatal", "--top-module", "reorder_tb",
-                         f"-GQPS={qps}", "--Mdir", run.relative(obj), *rtl])
             executable = directory / "simulation"
-            shutil.copyfile(obj / "Vreorder_tb", executable)
-            executable.chmod(0o755)
-            shutil.rmtree(obj)
+            try:
+                run.command(["verilator", "--binary", "--timing", "--build", "-j", "4",
+                             "-Wno-fatal", "--top-module", "reorder_tb",
+                             f"-GQPS={qps}", "--Mdir", run.relative(obj), *rtl])
+                shutil.copyfile(obj / "Vreorder_tb", executable)
+                executable.chmod(0o755)
+            finally:
+                if obj.is_dir():
+                    shutil.rmtree(obj)
         for seed in seeds:
             path = run.output / f"tracker-{qps}-{seed}.txt"
             path.write_text(vectors(qps, seed))

@@ -2,7 +2,6 @@
 """Portable L1 entry point. Every invocation retains exclusive, source-bound evidence."""
 
 import argparse
-import os
 from pathlib import Path
 import shutil
 import sys
@@ -12,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from native_matrix import matrix
 from parameters import parameters
 from retention import Run, digest, sources
-from smoke import arithmetic, combine_leaf, integration, resets, tracker
+from smoke import arithmetic, combine_leaf, integration, resets, topk, tracker
 from synthesis import synthesis
 
 
@@ -33,7 +32,7 @@ def portable(run):
     for tool in ("python3", "iverilog", "vvp", "verilator", "yosys", "make",
                  "g++", "gcc", "cc", "c++", "ar", "ld", "as", "sh", "perl",
                  "cat", "echo", "which", "basename", "dirname", "rm", "mkdir",
-                 "cp", "sed", "uname"):
+                 "cp", "sed", "uname", "xargs"):
         resolved = shutil.which(tool)
         if resolved is None:
             raise RuntimeError(f"portable tool is unavailable: {tool}")
@@ -84,6 +83,8 @@ def main():
                                 ["verilator", "--version"]):
                     run.command(command)
                 integration(run, tiny=True)
+                resets(run)
+                topk(run)
                 arithmetic(run)
                 combine_leaf(run)
                 tracker(run, compact=True, qps_values=(1,), seeds=(17,))

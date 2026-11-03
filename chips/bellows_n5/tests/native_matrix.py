@@ -45,11 +45,14 @@ def build(run, geometry, rtl_root=None, label=None):
                  for name, value in zip(PARAMETERS, values)],
                *[str(p.relative_to(run.root)) for p in sorted((root / "rtl").glob("*.sv"))],
                str((run.root / "tests/fabric.cpp").resolve())]
-    run.command(command)
     executable = directory / "fabric"
-    shutil.copyfile(obj / "Vbellows_n5_top", executable)
-    executable.chmod(0o755)
-    shutil.rmtree(obj)
+    try:
+        run.command(command)
+        shutil.copyfile(obj / "Vbellows_n5_top", executable)
+        executable.chmod(0o755)
+    finally:
+        if obj.is_dir():
+            shutil.rmtree(obj)
     return executable
 
 
