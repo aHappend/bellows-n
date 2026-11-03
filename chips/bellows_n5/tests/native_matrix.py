@@ -68,6 +68,8 @@ def stimulus(directory, geometry, seed, token_count=32):
             scores = [rng.randrange(-32768, 32768) for _ in range(experts)]
             if index % 4 == 0:
                 scores = [-5] * experts
+            if index >= 16:
+                scores = [-1000 - ((e - index) % experts) for e in range(experts)]
             weights = [rng.choice([0, 0x8000, 1, 0x7f, 0x80, 0x3f80,
                                    0xbf80, 0x3f00, 0x3f81, 0x7f80,
                                    0x7fc0, 0x7f7f]) for _ in range(experts)]
@@ -237,8 +239,11 @@ def validate(directory, geometry, tokens, token_count=32):
     received = [[set() for _ in range(qps)] for _ in range(2)]
     transmit_psn = [[0] * qps for _ in range(2)]
     expected_sacks = [{}, {}]
+    expected_peers = [[], []]
     dispatches, returns, requests, combines, completions = {}, {}, {}, {}, {}
-    partial_jobs, partial_combines = {}, {}
+    partial_jobs = {}
+    active_contexts, active_jobs = [set(), set()], [set(), set()]
+    max_contexts, max_jobs = [0, 0], [0, 0]
     counts = dict(network_packets=0, dispatch_packets=0, return_packets=0,
                   sack_packets=0, events=0, peer_sacks=0, expert_jobs=0,
                   combined_bytes=0, completions=0, invalid_expert_response=0,
@@ -252,7 +257,15 @@ def validate(directory, geometry, tokens, token_count=32):
         fields = line.split()
         kind, node, cycle = fields[0], int(fields[1]), int(fields[2])
         context = f"trace line {line_number} {kind} node={node} cycle={cycle}"
-        if kind in {"TX", "RX"}:
+        if kind == "CMD":
+            token, format, count, k = (int(value) for value in fields[3:])
+            check(token in tokens and format == tokens[token]["format"] and
+                  count == tokens[token]["count"] and k == tokens[token]["k"],
+                  context + ": accepted command")
+            check(token not in active_contexts[node], context + ": duplicate command acceptance")
+            active_contexts[node].add(token)
+            max_contexts[node] = max(max_contexts[node], len(active_contexts[node]))
+        elif kind in {"TX", "RX"}:
             frame = bytes.fromhex(fields[3])
             h, payload = frame[42:106], frame[106:-4]
             packet_kind = h[5]
@@ -301,8 +314,15 @@ def validate(directory, geometry, tokens, token_count=32):
                 key = (node, token, rank, offset)
                 check(key not in target, context + ": duplicate data transmission")
                 target[key] = True
+                if packet_kind == 3 and h[7]:
+                    job_key = (token, rank)
+                    check(job_key in active_jobs[node], context + ": early remote-job release")
+                    active_jobs[node].remove(job_key)
                 counts["dispatch_packets" if packet_kind == 2 else "return_packets"] += 1
-            elif packet_kind != 4:
+            elif packet_kind == 4:
+                expected_peers[node].append((qp, int.from_bytes(h[52:55], "big"),
+                                             payload.hex(), h[55]))
+            else:
                 distance = (psn - receive_base[node][qp]) & 0xffffff
                 check(distance < 256 and psn not in received[node][qp],
                       context + ": unexpected transport replay/window")
@@ -329,6 +349,8 @@ def validate(directory, geometry, tokens, token_count=32):
             check(meta == expected, context + ": normalized job metadata")
             check((node, token, rank) not in requests, context + ": repeated expert job")
             requests[node, token, rank] = True
+            active_jobs[node].add((token, rank))
+            max_jobs[node] = max(max_jobs[node], len(active_jobs[node]))
             partial_jobs[node] = (token, rank, bytearray())
             counts["expert_jobs"] += 1
         elif kind == "JOB":
@@ -347,6 +369,8 @@ def validate(directory, geometry, tokens, token_count=32):
             check(status == 0 and (node, token) in combines and
                   (node, token) not in completions, context + ": completion multiplicity/order")
             completions[node, token] = True
+            check(token in active_contexts[node], context + ": completion without ownership")
+            active_contexts[node].remove(token)
             counts["completions"] += 1
         elif kind == "EVT":
             status, packet_kind = int(fields[3]), int(fields[4])
@@ -362,6 +386,10 @@ def validate(directory, geometry, tokens, token_count=32):
                 counts["malformed_expert_response"] += 1
             counts["events"] += 1
         elif kind == "PEER":
+            check(bool(expected_peers[node]), context + ": unsolicited peer-SACK output")
+            qp, base, bitmap, status = fields[3:]
+            check((int(qp), int(base), bitmap, int(status)) == expected_peers[node].pop(0),
+                  context + ": decoded peer-SACK fields")
             counts["peer_sacks"] += 1
         else:
             raise AssertionError(context + ": unknown trace record")
@@ -376,6 +404,25 @@ def validate(directory, geometry, tokens, token_count=32):
           "missing retryable expert-response failures")
     check(not any(expected_sacks) and counts["peer_sacks"] == counts["sack_packets"] ==
           2 * expected_fragments, "missing SACK/peer comparisons")
+    check(not any(expected_peers) and not any(active_contexts) and not any(active_jobs),
+          "unreleased public ownership")
+    check(counts["events"] == 4 * expected_fragments +
+          2 * sum(t["k"] for t in tokens.values()) + 4,
+          "missing/duplicated received-frame or expert-response events")
+    for node in range(2):
+        check(max_contexts[node] == min(slots, token_count), "missing full local context occupancy")
+        check(max_jobs[node] >= min(slots, token_count) * max_k,
+              "missing full remote expert-job occupancy")
+    if token_count >= 32:
+        check({e for token in tokens.values() for e in token["ids"]} == set(range(experts)),
+              "missing configured expert-route comparisons")
+        check({t["k"] for t in tokens.values()} == set(range(1, max_k + 1)),
+              "missing dynamic K comparisons")
+        check(sum(t["format"] == 0 for t in tokens.values()) >= 16 and
+              sum(t["format"] == 1 for t in tokens.values()) >= 16,
+              "missing token precision thresholds")
+    counts["peak_contexts_per_peer"] = max_contexts
+    counts["peak_expert_jobs_per_peer"] = max_jobs
     return counts
 
 

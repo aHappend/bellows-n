@@ -8,13 +8,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from parameters import parameters
 from mutations import MUTATIONS, mutations
 from retention import Run
-from smoke import arithmetic, combine_leaf, integration
+from smoke import arithmetic, combine_leaf, integration, resets
 from synthesis import synthesis
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("case", choices=("smoke", "synthesis", "parameters", "mutation"))
+    parser.add_argument("case", choices=("smoke", "synthesis", "parameters", "mutation", "reset"))
     parser.add_argument("--mutation", choices=tuple(MUTATIONS))
     parser.add_argument("--geometry", choices=("tiny64", "default512", "upper"), default="tiny64")
     parser.add_argument("--leaves", action="store_true")
@@ -33,6 +33,10 @@ def main():
             arithmetic(run, compact=True)
             combine_leaf(run)
             integration(run, tiny=True)
+        elif args.case == "reset":
+            run.command(["iverilog", "-V"])
+            run.command(["vvp", "-V"])
+            resets(run)
         elif args.case == "parameters":
             run.command(["iverilog", "-V"])
             run.command(["vvp", "-V"])

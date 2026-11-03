@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from native_matrix import matrix
 from parameters import parameters
 from retention import Run, digest, sources
-from smoke import arithmetic, combine_leaf, integration, tracker
+from smoke import arithmetic, combine_leaf, integration, resets, tracker
 from synthesis import synthesis
 
 
@@ -74,6 +74,7 @@ def main():
             arithmetic(run, compact=True)
             combine_leaf(run)
             integration(run, tiny=True)
+            resets(run)
             tracker(run, qps_values=(1,), seeds=(17,), compact=True)
             matrix(run, geometries=("tiny64",), seeds=(17,), token_count=2)
             synthesis(run, geometries=("tiny64",), leaves=False)

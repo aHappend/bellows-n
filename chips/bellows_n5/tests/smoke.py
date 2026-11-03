@@ -4,7 +4,8 @@ from pathlib import Path
 import re
 import shutil
 
-from oracle import arithmetic_vectors, bf16_add, bf16_mul, combine, reflected_crc
+from oracle import (arithmetic_vectors, bf16_add, bf16_mul, combine, ethernet_frame,
+                    reflected_crc, x5_header)
 from prepare_integration import fixtures, top_testbench, write_fixtures
 from prepare_reorder import vectors
 
@@ -84,6 +85,30 @@ def combine_leaf(run, compiled=False):
         raise AssertionError("missing exhaustive FP8/ordered combine comparisons")
     run.summary["comparisons"]["fp8_encodings"] = 256
     run.summary["comparisons"]["combine"] = len(records)
+
+
+def resets(run):
+    directory = run.output / "reset"
+    directory.mkdir()
+    frames = []
+    for kind in (1, 2, 3):
+        header = x5_header(kind, token=0x12340055, count=1, payload_bytes=1,
+                           format=2 if kind == 1 else 0, k=0 if kind == 1 else 1,
+                           address=0x2000 if kind == 1 else 0,
+                           rkey=0x01020304 if kind == 1 else 0,
+                           weight=0 if kind == 1 else 0x3f80)
+        frame = ethernet_frame(header, b"\x38")
+        frames.extend(frame + bytes(512 - len(frame)))
+    (directory / "reset-frames.hex").write_text(
+        "\n".join(f"{byte:02x}" for byte in frames) + "\n")
+    tb = directory / "top.sv"
+    tb.write_text(top_testbench(run.root, 64, "reset_body.svh"))
+    text = icarus(run, "reset", "integration_tb",
+                  [run.relative(tb), *[run.relative(p) for p in sorted(run.root.glob("rtl/*.sv"))]],
+                  ["+fixture=" + run.relative(directory)])
+    if "RESET compared_phases=7" not in text:
+        raise AssertionError("missing public reset-epoch comparisons")
+    run.summary["comparisons"]["reset_ownership_phases"] = 7
 
 
 def integration(run, widths=(64, 512), compiled=False, tiny=False, rtl_root=None,
