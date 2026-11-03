@@ -1,0 +1,355 @@
+{
+  "gate": "quartus-sta",
+  "timestamp_utc": "2026-11-03T05:34:01.766001+00:00",
+  "project_dir": "/data/sufeng/furnace-x5-line/workspace/project/.vulcan/engineering/run-0001/quartus_sta_work",
+  "revision": "top",
+  "clock_filter": "clk_main",
+  "min_setup_slack_ns": 0.0,
+  "min_hold_slack_ns": 0.0,
+  "status": "passed",
+  "map_summary": {
+    "exists": true,
+    "path": "/data/sufeng/furnace-x5-line/workspace/project/.vulcan/engineering/run-0001/quartus_sta_work/top.map.rpt",
+    "error_count": 0,
+    "errors": [],
+    "lpm_divide_error_count": 0,
+    "lpm_divide_errors": [],
+    "warning_10268_count": 0,
+    "warning_10268": [],
+    "uninferred_ram_count": 3,
+    "uninferred_rams": [
+      "Info (276007): RAM logic \"furnace_x4_top:g_legal.legacy_core|furnace_x3_top:g_legal.legacy_core|furnace_x2_top:g_legal.x2_core|furnace_classifier64:g_legal.classifier|values\" is uninferred due to asynchronous read logic File: /data/sufeng/furnace-x5-line/workspace/project/.vulcan/engineering/run-0001/quartus_sta_work/rtl_staged/furnace_classifier64.sv Line: 16",
+      "Info (276007): RAM logic \"furnace_x4_top:g_legal.legacy_core|furnace_x3_top:g_legal.legacy_core|furnace_x2_top:g_legal.x2_core|furnace_classifier64:g_legal.classifier|masks\" is uninferred due to asynchronous read logic File: /data/sufeng/furnace-x5-line/workspace/project/.vulcan/engineering/run-0001/quartus_sta_work/rtl_staged/furnace_classifier64.sv Line: 17",
+      "Info (276007): RAM logic \"furnace_x4_top:g_legal.legacy_core|furnace_x3_top:g_legal.legacy_core|furnace_x2_top:g_legal.x2_core|furnace_classifier64:g_legal.classifier|actions\" is uninferred due to asynchronous read logic File: /data/sufeng/furnace-x5-line/workspace/project/.vulcan/engineering/run-0001/quartus_sta_work/rtl_staged/furnace_classifier64.sv Line: 18"
+    ]
+  },
+  "sta_summary": {
+    "exit_code": 0,
+    "netlist_mode": "post_map",
+    "clocks": [
+      {
+        "name": "clk_main",
+        "period_ns": 10.0
+      }
+    ],
+    "wns_setup_ns": 5.075,
+    "wns_hold_ns": -0.205,
+    "unconstrained_setup_paths": 0,
+    "unconstrained_functional_endpoints": 0,
+    "unapproved_timing_exceptions": 0,
+    "failing_setup_count": 0,
+    "failing_hold_count": 20,
+    "setup_paths": [
+      {
+        "slack_ns": 5.075,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x4_top:g_legal.legacy_core",
+        "to_node": "furnace_x3_top:g_legal.legacy_core|furnace_drr_scheduler:g_legal.scheduler|grant_queue[0]|furnace_x4_top:g_legal.legacy_core|furnace_x3_top:g_legal.legacy_core|furnace_token_bucket8:g_legal.shaper|balance[5][46]"
+      },
+      {
+        "slack_ns": 5.075,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x4_top:g_legal.legacy_core",
+        "to_node": "furnace_x3_top:g_legal.legacy_core|furnace_drr_scheduler:g_legal.scheduler|grant_queue[0]|furnace_x4_top:g_legal.legacy_core|furnace_x3_top:g_legal.legacy_core|furnace_token_bucket8:g_legal.shaper|balance[5][46]"
+      },
+      {
+        "slack_ns": 5.075,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x4_top:g_legal.legacy_core",
+        "to_node": "furnace_x3_top:g_legal.legacy_core|furnace_drr_scheduler:g_legal.scheduler|grant_queue[0]|furnace_x4_top:g_legal.legacy_core|furnace_x3_top:g_legal.legacy_core|furnace_token_bucket8:g_legal.shaper|balance[1][46]"
+      },
+      {
+        "slack_ns": 5.075,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x4_top:g_legal.legacy_core",
+        "to_node": "furnace_x3_top:g_legal.legacy_core|furnace_drr_scheduler:g_legal.scheduler|grant_queue[0]|furnace_x4_top:g_legal.legacy_core|furnace_x3_top:g_legal.legacy_core|furnace_token_bucket8:g_legal.shaper|balance[1][46]"
+      },
+      {
+        "slack_ns": 5.075,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x4_top:g_legal.legacy_core",
+        "to_node": "furnace_x3_top:g_legal.legacy_core|furnace_drr_scheduler:g_legal.scheduler|grant_queue[0]|furnace_x4_top:g_legal.legacy_core|furnace_x3_top:g_legal.legacy_core|furnace_token_bucket8:g_legal.shaper|balance[3][46]"
+      },
+      {
+        "slack_ns": 5.075,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x4_top:g_legal.legacy_core",
+        "to_node": "furnace_x3_top:g_legal.legacy_core|furnace_drr_scheduler:g_legal.scheduler|grant_queue[0]|furnace_x4_top:g_legal.legacy_core|furnace_x3_top:g_legal.legacy_core|furnace_token_bucket8:g_legal.shaper|balance[3][46]"
+      },
+      {
+        "slack_ns": 5.075,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x4_top:g_legal.legacy_core",
+        "to_node": "furnace_x3_top:g_legal.legacy_core|furnace_drr_scheduler:g_legal.scheduler|grant_queue[0]|furnace_x4_top:g_legal.legacy_core|furnace_x3_top:g_legal.legacy_core|furnace_token_bucket8:g_legal.shaper|balance[7][46]"
+      },
+      {
+        "slack_ns": 5.075,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x4_top:g_legal.legacy_core",
+        "to_node": "furnace_x3_top:g_legal.legacy_core|furnace_drr_scheduler:g_legal.scheduler|grant_queue[0]|furnace_x4_top:g_legal.legacy_core|furnace_x3_top:g_legal.legacy_core|furnace_token_bucket8:g_legal.shaper|balance[7][46]"
+      },
+      {
+        "slack_ns": 5.075,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x4_top:g_legal.legacy_core",
+        "to_node": "furnace_x3_top:g_legal.legacy_core|furnace_drr_scheduler:g_legal.scheduler|grant_queue[0]|furnace_x4_top:g_legal.legacy_core|furnace_x3_top:g_legal.legacy_core|furnace_token_bucket8:g_legal.shaper|balance[4][46]"
+      },
+      {
+        "slack_ns": 5.075,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x4_top:g_legal.legacy_core",
+        "to_node": "furnace_x3_top:g_legal.legacy_core|furnace_drr_scheduler:g_legal.scheduler|grant_queue[0]|furnace_x4_top:g_legal.legacy_core|furnace_x3_top:g_legal.legacy_core|furnace_token_bucket8:g_legal.shaper|balance[4][46]"
+      },
+      {
+        "slack_ns": 5.075,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x4_top:g_legal.legacy_core",
+        "to_node": "furnace_x3_top:g_legal.legacy_core|furnace_drr_scheduler:g_legal.scheduler|grant_queue[0]|furnace_x4_top:g_legal.legacy_core|furnace_x3_top:g_legal.legacy_core|furnace_token_bucket8:g_legal.shaper|balance[0][46]"
+      },
+      {
+        "slack_ns": 5.075,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x4_top:g_legal.legacy_core",
+        "to_node": "furnace_x3_top:g_legal.legacy_core|furnace_drr_scheduler:g_legal.scheduler|grant_queue[0]|furnace_x4_top:g_legal.legacy_core|furnace_x3_top:g_legal.legacy_core|furnace_token_bucket8:g_legal.shaper|balance[0][46]"
+      },
+      {
+        "slack_ns": 5.075,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x4_top:g_legal.legacy_core",
+        "to_node": "furnace_x3_top:g_legal.legacy_core|furnace_drr_scheduler:g_legal.scheduler|grant_queue[0]|furnace_x4_top:g_legal.legacy_core|furnace_x3_top:g_legal.legacy_core|furnace_token_bucket8:g_legal.shaper|balance[6][46]"
+      },
+      {
+        "slack_ns": 5.075,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x4_top:g_legal.legacy_core",
+        "to_node": "furnace_x3_top:g_legal.legacy_core|furnace_drr_scheduler:g_legal.scheduler|grant_queue[0]|furnace_x4_top:g_legal.legacy_core|furnace_x3_top:g_legal.legacy_core|furnace_token_bucket8:g_legal.shaper|balance[6][46]"
+      },
+      {
+        "slack_ns": 5.075,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x4_top:g_legal.legacy_core",
+        "to_node": "furnace_x3_top:g_legal.legacy_core|furnace_drr_scheduler:g_legal.scheduler|grant_queue[0]|furnace_x4_top:g_legal.legacy_core|furnace_x3_top:g_legal.legacy_core|furnace_token_bucket8:g_legal.shaper|balance[2][46]"
+      },
+      {
+        "slack_ns": 5.075,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x4_top:g_legal.legacy_core",
+        "to_node": "furnace_x3_top:g_legal.legacy_core|furnace_drr_scheduler:g_legal.scheduler|grant_queue[0]|furnace_x4_top:g_legal.legacy_core|furnace_x3_top:g_legal.legacy_core|furnace_token_bucket8:g_legal.shaper|balance[2][46]"
+      },
+      {
+        "slack_ns": 5.078,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x4_top:g_legal.legacy_core",
+        "to_node": "furnace_x3_top:g_legal.legacy_core|furnace_drr_scheduler:g_legal.scheduler|grant_queue[1]|furnace_x4_top:g_legal.legacy_core|furnace_x3_top:g_legal.legacy_core|furnace_token_bucket8:g_legal.shaper|balance[5][46]"
+      },
+      {
+        "slack_ns": 5.078,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x4_top:g_legal.legacy_core",
+        "to_node": "furnace_x3_top:g_legal.legacy_core|furnace_drr_scheduler:g_legal.scheduler|grant_queue[1]|furnace_x4_top:g_legal.legacy_core|furnace_x3_top:g_legal.legacy_core|furnace_token_bucket8:g_legal.shaper|balance[5][46]"
+      },
+      {
+        "slack_ns": 5.078,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x4_top:g_legal.legacy_core",
+        "to_node": "furnace_x3_top:g_legal.legacy_core|furnace_drr_scheduler:g_legal.scheduler|grant_queue[1]|furnace_x4_top:g_legal.legacy_core|furnace_x3_top:g_legal.legacy_core|furnace_token_bucket8:g_legal.shaper|balance[1][46]"
+      },
+      {
+        "slack_ns": 5.078,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x4_top:g_legal.legacy_core",
+        "to_node": "furnace_x3_top:g_legal.legacy_core|furnace_drr_scheduler:g_legal.scheduler|grant_queue[1]|furnace_x4_top:g_legal.legacy_core|furnace_x3_top:g_legal.legacy_core|furnace_token_bucket8:g_legal.shaper|balance[1][46]"
+      }
+    ],
+    "hold_paths": [
+      {
+        "slack_ns": -0.205,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x5_engine:g_legal.x5_core",
+        "to_node": "furnace_x5_moe_router:moe_router|furnace_x5_combine:combiner|furnace_reduce_alu:g_legal.gate_sum|furnace_reduce_lane:g_legal.g_word[0].g_half[0].half_lane|selected3[31]|furnace_x5_engine:g_legal.x5_core|furnace_x5_moe_router:moe_router|furnace_x5_combine:combiner|furnace_reduce_alu:g_legal.gate_sum|furnace_reduce_lane:g_legal.g_word[0].g_half[0].half_lane|altshift_taps:selected4_rtl_0|shift_taps_pmv:auto_generated|altera_syncram_98b1:altera_syncram4|altsyncram_2094:altsyncram7|ram_block8a0~reg0"
+      },
+      {
+        "slack_ns": -0.205,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x5_engine:g_legal.x5_core",
+        "to_node": "furnace_x5_moe_router:moe_router|furnace_x5_combine:combiner|furnace_reduce_alu:g_legal.gate_sum|furnace_reduce_lane:g_legal.g_word[0].g_half[0].half_lane|selected3[30]|furnace_x5_engine:g_legal.x5_core|furnace_x5_moe_router:moe_router|furnace_x5_combine:combiner|furnace_reduce_alu:g_legal.gate_sum|furnace_reduce_lane:g_legal.g_word[0].g_half[0].half_lane|altshift_taps:selected4_rtl_0|shift_taps_pmv:auto_generated|altera_syncram_98b1:altera_syncram4|altsyncram_2094:altsyncram7|ram_block8a1~reg0"
+      },
+      {
+        "slack_ns": -0.205,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x5_engine:g_legal.x5_core",
+        "to_node": "furnace_x5_moe_router:moe_router|furnace_x5_combine:combiner|furnace_reduce_alu:g_legal.gate_sum|furnace_reduce_lane:g_legal.g_word[0].g_half[0].half_lane|selected3[29]|furnace_x5_engine:g_legal.x5_core|furnace_x5_moe_router:moe_router|furnace_x5_combine:combiner|furnace_reduce_alu:g_legal.gate_sum|furnace_reduce_lane:g_legal.g_word[0].g_half[0].half_lane|altshift_taps:selected4_rtl_0|shift_taps_pmv:auto_generated|altera_syncram_98b1:altera_syncram4|altsyncram_2094:altsyncram7|ram_block8a2~reg0"
+      },
+      {
+        "slack_ns": -0.205,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x5_engine:g_legal.x5_core",
+        "to_node": "furnace_x5_moe_router:moe_router|furnace_x5_combine:combiner|furnace_reduce_alu:g_legal.gate_sum|furnace_reduce_lane:g_legal.g_word[0].g_half[0].half_lane|selected3[28]|furnace_x5_engine:g_legal.x5_core|furnace_x5_moe_router:moe_router|furnace_x5_combine:combiner|furnace_reduce_alu:g_legal.gate_sum|furnace_reduce_lane:g_legal.g_word[0].g_half[0].half_lane|altshift_taps:selected4_rtl_0|shift_taps_pmv:auto_generated|altera_syncram_98b1:altera_syncram4|altsyncram_2094:altsyncram7|ram_block8a3~reg0"
+      },
+      {
+        "slack_ns": -0.205,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x5_engine:g_legal.x5_core",
+        "to_node": "furnace_x5_moe_router:moe_router|furnace_x5_combine:combiner|furnace_reduce_alu:g_legal.gate_sum|furnace_reduce_lane:g_legal.g_word[0].g_half[0].half_lane|selected3[27]|furnace_x5_engine:g_legal.x5_core|furnace_x5_moe_router:moe_router|furnace_x5_combine:combiner|furnace_reduce_alu:g_legal.gate_sum|furnace_reduce_lane:g_legal.g_word[0].g_half[0].half_lane|altshift_taps:selected4_rtl_0|shift_taps_pmv:auto_generated|altera_syncram_98b1:altera_syncram4|altsyncram_2094:altsyncram7|ram_block8a4~reg0"
+      },
+      {
+        "slack_ns": -0.205,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x5_engine:g_legal.x5_core",
+        "to_node": "furnace_x5_moe_router:moe_router|furnace_x5_combine:combiner|furnace_reduce_alu:g_legal.gate_sum|furnace_reduce_lane:g_legal.g_word[0].g_half[0].half_lane|selected3[26]|furnace_x5_engine:g_legal.x5_core|furnace_x5_moe_router:moe_router|furnace_x5_combine:combiner|furnace_reduce_alu:g_legal.gate_sum|furnace_reduce_lane:g_legal.g_word[0].g_half[0].half_lane|altshift_taps:selected4_rtl_0|shift_taps_pmv:auto_generated|altera_syncram_98b1:altera_syncram4|altsyncram_2094:altsyncram7|ram_block8a5~reg0"
+      },
+      {
+        "slack_ns": -0.205,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x5_engine:g_legal.x5_core",
+        "to_node": "furnace_x5_moe_router:moe_router|furnace_x5_combine:combiner|furnace_reduce_alu:g_legal.gate_sum|furnace_reduce_lane:g_legal.g_word[0].g_half[0].half_lane|selected3[25]|furnace_x5_engine:g_legal.x5_core|furnace_x5_moe_router:moe_router|furnace_x5_combine:combiner|furnace_reduce_alu:g_legal.gate_sum|furnace_reduce_lane:g_legal.g_word[0].g_half[0].half_lane|altshift_taps:selected4_rtl_0|shift_taps_pmv:auto_generated|altera_syncram_98b1:altera_syncram4|altsyncram_2094:altsyncram7|ram_block8a6~reg0"
+      },
+      {
+        "slack_ns": -0.205,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x5_engine:g_legal.x5_core",
+        "to_node": "furnace_x5_moe_router:moe_router|furnace_x5_combine:combiner|furnace_reduce_alu:g_legal.gate_sum|furnace_reduce_lane:g_legal.g_word[0].g_half[0].half_lane|selected3[24]|furnace_x5_engine:g_legal.x5_core|furnace_x5_moe_router:moe_router|furnace_x5_combine:combiner|furnace_reduce_alu:g_legal.gate_sum|furnace_reduce_lane:g_legal.g_word[0].g_half[0].half_lane|altshift_taps:selected4_rtl_0|shift_taps_pmv:auto_generated|altera_syncram_98b1:altera_syncram4|altsyncram_2094:altsyncram7|ram_block8a7~reg0"
+      },
+      {
+        "slack_ns": -0.205,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x5_engine:g_legal.x5_core",
+        "to_node": "furnace_x5_moe_router:moe_router|furnace_x5_combine:combiner|furnace_reduce_alu:g_legal.gate_sum|furnace_reduce_lane:g_legal.g_word[0].g_half[0].half_lane|selected3[23]|furnace_x5_engine:g_legal.x5_core|furnace_x5_moe_router:moe_router|furnace_x5_combine:combiner|furnace_reduce_alu:g_legal.gate_sum|furnace_reduce_lane:g_legal.g_word[0].g_half[0].half_lane|altshift_taps:selected4_rtl_0|shift_taps_pmv:auto_generated|altera_syncram_98b1:altera_syncram4|altsyncram_2094:altsyncram7|ram_block8a8~reg0"
+      },
+      {
+        "slack_ns": -0.205,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x5_engine:g_legal.x5_core",
+        "to_node": "furnace_x5_moe_router:moe_router|furnace_x5_combine:combiner|furnace_reduce_alu:g_legal.gate_sum|furnace_reduce_lane:g_legal.g_word[0].g_half[0].half_lane|selected3[22]|furnace_x5_engine:g_legal.x5_core|furnace_x5_moe_router:moe_router|furnace_x5_combine:combiner|furnace_reduce_alu:g_legal.gate_sum|furnace_reduce_lane:g_legal.g_word[0].g_half[0].half_lane|altshift_taps:selected4_rtl_0|shift_taps_pmv:auto_generated|altera_syncram_98b1:altera_syncram4|altsyncram_2094:altsyncram7|ram_block8a9~reg0"
+      },
+      {
+        "slack_ns": -0.205,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x5_engine:g_legal.x5_core",
+        "to_node": "furnace_x5_moe_router:moe_router|furnace_x5_combine:combiner|furnace_reduce_alu:g_legal.gate_sum|furnace_reduce_lane:g_legal.g_word[0].g_half[0].half_lane|selected3[21]|furnace_x5_engine:g_legal.x5_core|furnace_x5_moe_router:moe_router|furnace_x5_combine:combiner|furnace_reduce_alu:g_legal.gate_sum|furnace_reduce_lane:g_legal.g_word[0].g_half[0].half_lane|altshift_taps:selected4_rtl_0|shift_taps_pmv:auto_generated|altera_syncram_98b1:altera_syncram4|altsyncram_2094:altsyncram7|ram_block8a10~reg0"
+      },
+      {
+        "slack_ns": -0.205,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x5_engine:g_legal.x5_core",
+        "to_node": "furnace_x5_moe_router:moe_router|furnace_x5_combine:combiner|furnace_reduce_alu:g_legal.gate_sum|furnace_reduce_lane:g_legal.g_word[0].g_half[0].half_lane|selected3[20]|furnace_x5_engine:g_legal.x5_core|furnace_x5_moe_router:moe_router|furnace_x5_combine:combiner|furnace_reduce_alu:g_legal.gate_sum|furnace_reduce_lane:g_legal.g_word[0].g_half[0].half_lane|altshift_taps:selected4_rtl_0|shift_taps_pmv:auto_generated|altera_syncram_98b1:altera_syncram4|altsyncram_2094:altsyncram7|ram_block8a11~reg0"
+      },
+      {
+        "slack_ns": -0.205,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x5_engine:g_legal.x5_core",
+        "to_node": "furnace_x5_moe_router:moe_router|furnace_x5_combine:combiner|furnace_reduce_alu:g_legal.gate_sum|furnace_reduce_lane:g_legal.g_word[0].g_half[0].half_lane|selected3[19]|furnace_x5_engine:g_legal.x5_core|furnace_x5_moe_router:moe_router|furnace_x5_combine:combiner|furnace_reduce_alu:g_legal.gate_sum|furnace_reduce_lane:g_legal.g_word[0].g_half[0].half_lane|altshift_taps:selected4_rtl_0|shift_taps_pmv:auto_generated|altera_syncram_98b1:altera_syncram4|altsyncram_2094:altsyncram7|ram_block8a12~reg0"
+      },
+      {
+        "slack_ns": -0.205,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x5_engine:g_legal.x5_core",
+        "to_node": "furnace_x5_moe_router:moe_router|furnace_x5_combine:combiner|furnace_reduce_alu:g_legal.gate_sum|furnace_reduce_lane:g_legal.g_word[0].g_half[0].half_lane|selected3[18]|furnace_x5_engine:g_legal.x5_core|furnace_x5_moe_router:moe_router|furnace_x5_combine:combiner|furnace_reduce_alu:g_legal.gate_sum|furnace_reduce_lane:g_legal.g_word[0].g_half[0].half_lane|altshift_taps:selected4_rtl_0|shift_taps_pmv:auto_generated|altera_syncram_98b1:altera_syncram4|altsyncram_2094:altsyncram7|ram_block8a13~reg0"
+      },
+      {
+        "slack_ns": -0.205,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x5_engine:g_legal.x5_core",
+        "to_node": "furnace_x5_moe_router:moe_router|furnace_x5_combine:combiner|furnace_reduce_alu:g_legal.gate_sum|furnace_reduce_lane:g_legal.g_word[0].g_half[0].half_lane|selected3[17]|furnace_x5_engine:g_legal.x5_core|furnace_x5_moe_router:moe_router|furnace_x5_combine:combiner|furnace_reduce_alu:g_legal.gate_sum|furnace_reduce_lane:g_legal.g_word[0].g_half[0].half_lane|altshift_taps:selected4_rtl_0|shift_taps_pmv:auto_generated|altera_syncram_98b1:altera_syncram4|altsyncram_2094:altsyncram7|ram_block8a14~reg0"
+      },
+      {
+        "slack_ns": -0.205,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x5_engine:g_legal.x5_core",
+        "to_node": "furnace_x5_moe_router:moe_router|furnace_x5_combine:combiner|furnace_reduce_alu:g_legal.gate_sum|furnace_reduce_lane:g_legal.g_word[0].g_half[0].half_lane|selected3[16]|furnace_x5_engine:g_legal.x5_core|furnace_x5_moe_router:moe_router|furnace_x5_combine:combiner|furnace_reduce_alu:g_legal.gate_sum|furnace_reduce_lane:g_legal.g_word[0].g_half[0].half_lane|altshift_taps:selected4_rtl_0|shift_taps_pmv:auto_generated|altera_syncram_98b1:altera_syncram4|altsyncram_2094:altsyncram7|ram_block8a15~reg0"
+      },
+      {
+        "slack_ns": -0.205,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x4_top:g_legal.legacy_core",
+        "to_node": "furnace_roce_rx:g_legal.roce_rx|furnace_collective_engine:collective_engine|input_pending|furnace_x4_top:g_legal.legacy_core|furnace_roce_rx:g_legal.roce_rx|furnace_collective_engine:collective_engine|furnace_reduce_alu:reduce_alu|altshift_taps:g_legal.valid_pipe_rtl_0|shift_taps_j5v:auto_generated|altera_syncram_n8b1:altera_syncram4|altsyncram_g094:altsyncram7|ram_block8a0~reg0"
+      },
+      {
+        "slack_ns": -0.205,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x4_top:g_legal.legacy_core",
+        "to_node": "furnace_roce_rx:g_legal.roce_rx|furnace_collective_engine:collective_engine|input_last|furnace_x4_top:g_legal.legacy_core|furnace_roce_rx:g_legal.roce_rx|furnace_collective_engine:collective_engine|furnace_reduce_alu:reduce_alu|altshift_taps:g_legal.valid_pipe_rtl_0|shift_taps_j5v:auto_generated|altera_syncram_n8b1:altera_syncram4|altsyncram_g094:altsyncram7|ram_block8a1~reg0"
+      },
+      {
+        "slack_ns": -0.205,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x4_top:g_legal.legacy_core",
+        "to_node": "furnace_roce_rx:g_legal.roce_rx|furnace_collective_engine:collective_engine|format[0]|furnace_x4_top:g_legal.legacy_core|furnace_roce_rx:g_legal.roce_rx|furnace_collective_engine:collective_engine|furnace_reduce_alu:reduce_alu|altshift_taps:g_legal.valid_pipe_rtl_0|shift_taps_j5v:auto_generated|altera_syncram_n8b1:altera_syncram4|altsyncram_g094:altsyncram7|ram_block8a35~reg0"
+      },
+      {
+        "slack_ns": -0.205,
+        "from_clock": "clk_main",
+        "to_clock": "clk_main",
+        "from_node": "furnace_x4_top:g_legal.legacy_core",
+        "to_node": "furnace_roce_rx:g_legal.roce_rx|furnace_collective_engine:collective_engine|format[1]|furnace_x4_top:g_legal.legacy_core|furnace_roce_rx:g_legal.roce_rx|furnace_collective_engine:collective_engine|furnace_reduce_alu:reduce_alu|altshift_taps:g_legal.valid_pipe_rtl_0|shift_taps_j5v:auto_generated|altera_syncram_n8b1:altera_syncram4|altsyncram_g094:altsyncram7|ram_block8a34~reg0"
+      }
+    ],
+    "stderr_tail": []
+  },
+  "detail": "Timing closed: Setup WNS = 5.075 ns",
+  "fit_mode": "plan_plus_post_map_sta",
+  "quartus_slot_telemetry": {
+    "slot_index": 1,
+    "max_slots": 6,
+    "slot_wait_s": 0.006
+  },
+  "top_module": "furnace_x5_top",
+  "clock_port": "clk",
+  "clock_period_ns": 10.0,
+  "target_frequency_mhz": 100.0,
+  "fmax_mhz": 203.05,
+  "critical_path_delay_ns": 4.925,
+  "fitter_resource_summary": {
+    "alms_used": 255519,
+    "alms_total": 427200,
+    "alms_pct": "60 %",
+    "total_registers": 239444,
+    "block_memory_bits": 914000,
+    "m20k_ram_blocks": 0,
+    "m20k_ram_blocks_total": 2713,
+    "dsp_blocks": 1,
+    "virtual_pins": 12845
+  },
+  "parameters": {},
+  "source_sha256": "ac26b0a6b87275d6adba5bd6d4bf02b7f823110da19ddaaafdd44fa94781666b",
+  "applicable": true
+}
