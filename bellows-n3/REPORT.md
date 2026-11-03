@@ -2,7 +2,7 @@
 
 [Developer Engineering Report (PDF)](REPORT.pdf) · [LaTeX Source (`REPORT.tex`)](REPORT.tex) · [Product Whitepaper (PDF)](SHOWCASE_REPORT.pdf) · [Product Whitepaper (Markdown)](SHOWCASE_REPORT.md)
 
-[Engineering Journey (`.vulcan/engineering/JOURNEY.md`)](.vulcan/engineering/JOURNEY.md) · [Verification Manifest (`.vulcan/engineering/reports/report-0001/manifest.json`)](.vulcan/engineering/reports/report-0001/manifest.json)
+[Engineering Journey (`.vulcan/engineering/JOURNEY.md`)](.vulcan/engineering/JOURNEY.md) · [Verification Manifest (`.vulcan/engineering/reports/report-0960/manifest.json`)](.vulcan/engineering/reports/report-0960/manifest.json)
 
 This engineering report provides the complete Register-Transfer Level (RTL) microarchitectural specification, cycle-accurate interface protocol contracts, fixed-point arithmetic bounds, Intel Quartus Prime 17.1 static timing analysis (STA), and Intel Arria 10 GX physical PCIe Hardware-in-the-Loop (HIL) signoff evidence.
 
@@ -40,6 +40,3 @@ This engineering report provides the complete Register-Transfer Level (RTL) micr
 
 ### Page 11
 ![Report Page 11](report_figures/page-11.png)
-
-### Page 12
-![Report Page 12](report_figures/page-12.png)

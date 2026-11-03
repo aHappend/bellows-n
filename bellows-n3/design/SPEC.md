@@ -1,530 +1,222 @@
-# BELLOWS-N3 v3.0.0-soc-flagship
+# BELLOWS-N3 frozen design contract
 
-## Authority and implementation status
+## Scope and authority
 
-The admitted work order defines the acceptance contract; this document does not
-relax it. The required product top is `bellows_n3_top`. Target: Intel Arria 10 GX
-`10AX115N2F45E1SG`, synchronous clock period <= 10.0 ns. Static elaboration is not
-functional verification, timing closure, hardware acceptance, or delivery approval.
+Top: `bellows_n3_top`. One clock, asynchronous active-low `rst_n`.
+Target: Intel Arria 10 GX 10AX115N2F45E1SG, period <=10.0 ns.
+This document describes implementation requirements, not measured acceptance.
+The supplied X2 RTL is provenance; its copied modules retain literal interfaces,
+hierarchy, CRC, parser, RSS, classifier and legacy behavior.
 
-The design now includes the connected X3 RTL hierarchy and a project-local
-RV64IM scheduler source, deterministic image builder and default executable
-image. All 26 parent modules remain unchanged. The four portable L1 suites
-passed in shared-runtime attempts 13..16; retained receipts and measured native
-gate scopes are documented below. These results are not delivery approval:
-STA is recorded as post-map with negative hold slack, and the physical-board
-receipt covers connectivity only, not X3 firmware workloads. Independent
-delivery approval remains pending.
+Parameters: DATA_WIDTH=512 (legal 64 or 512), MAX_PACKET_BYTES=9216
+(legal 1..9216), MAX_SG=16 (legal 1..16). Unsupported tuples have a
+diagnostic-only interface and a complete generate guard, with nonzero
+`PARAMETER ERROR` termination. Eight queues are fixed. No division or modulo
+operators are permitted in RTL. No sequential process mixes assignment styles
+for stored state. Packet RAM is synchronous byte-wide storage without reset
+contents; ownership and valid state reset.
 
-## Provenance
+## Public ports
 
-`furnace_x2_reference/rtl/*.sv` is immutable parent provenance. Its 26 modules
-are copied without changes into `rtl/`; shipped RTL must resolve only project-local
-modules. The original hierarchy, public `furnace_x1_top` and `furnace_x2_top`
-interfaces, numerical behavior and legal parameter domains remain preserved.
-No linked source index was supplied or found in the parent directory.
+Every `furnace_x2_top` port is retained unchanged: the s_axis/m_axis data,
+keep, valid, last and ready channels; checksum controls and CRC result channel;
+cfg_valid/op/index/value/mask/action/enable/rss_key/ready; and
+m_meta_valid/header/packet_bytes/rss_hash/rss_valid/rule_hit/rule_index/action/
+ready. See its module declaration for exact widths. The added ports are:
 
-The requested `design/GENERATIONAL_HANDOFF.md` does not exist in this intake.
-Historical parent Quartus timing and PPA are unavailable, not accepted
-measurements. Fresh runtime timing and hardware gates remain mandatory.
+| Group | Inputs | Outputs |
+|---|---|---|
+| Mode | dma_enable | dma_idle |
+| Queue configuration | q_cfg_valid, q_cfg_id[2:0], q_cfg_enable, q_cfg_ring_base[63:0], q_cfg_ring_entries[8:0], q_cfg_quantum[15:0], q_cfg_rate[31:0], q_cfg_burst[15:0] | q_cfg_ready |
+| Doorbell | db_valid, db_queue[2:0], db_producer[31:0] | db_ready |
+| Control response | ctl_ready | ctl_valid, ctl_queue[2:0], ctl_code[2:0] |
+| Memory request | dma_rd_ready | dma_rd_valid, dma_rd_addr[63:0], dma_rd_len[15:0] |
+| Memory response | dma_rsp_valid, dma_rsp_data[DATA_WIDTH-1:0], dma_rsp_keep[(DATA_WIDTH>>3)-1:0], dma_rsp_last, dma_rsp_error | dma_rsp_ready |
+| Completion | dma_cpl_ready | dma_cpl_valid, dma_cpl_queue[2:0], dma_cpl_cookie[31:0], dma_cpl_status[2:0], dma_cpl_bytes[31:0] |
 
-## Product boundary
+During reset every public output is zero. Reset cancels every transaction,
+configuration, reservation, cached head and credit; the environment resets the
+bridge and discards outstanding responses. dma_enable changes only when the
+whole subsystem is quiescent. DMA mode excludes legacy ingress. Legacy mode
+excludes queue controls, reads and completions, but preserves X2 configuration.
+dma_idle excludes pending ring work, control responses, prefetch offers, reads,
+decisions, reservations, buffered packets, completions and undrained X2 outputs.
+Idle token refill is not pending work.
 
-The new top retains every parent AXI-Lite, vision, audio and multimodal port,
-including names, widths, directions and signedness. Four parent 128-bit AXI
-masters are adapted to one scalar 512-bit AXI4 master. Addresses are 32-bit;
-IDs are 4-bit; lengths are 8-bit; data strobes are 64-bit. Only INCR bursts,
-SIZE=6, LOCK=0 and zero CACHE/PROT/QOS/REGION are emitted externally. DDR4 means
-the memory-controller-facing AXI4 interface, not a DDR PHY implementation.
-
-The top directly instantiates:
-
-| Instance | Module |
-|---|---|
-| `control_cpu` | `furnace_rv64im_core` |
-| `control` | `bellows_n3_control` |
-| `local_memory` | `bellows_n3_local_memory` |
-| `mmio_arbiter` | `bellows_n3_mmio_arb` |
-| `legacy_soc` | `furnace_x2_top` |
-| `burst_dma` | `furnace_dma512` |
-| `semaphores` | `furnace_hw_semaphores` |
-| `mailboxes` | `furnace_mailboxes` |
-| `interrupts` | `furnace_interrupt_aggregator` |
-| `cpu_memory_bridge` | `bellows_n3_cpu_axi_bridge` |
-| `memory_arbiter` | `bellows_n3_axi512_arb` |
-
-Generate block `legacy_memory_ports` contains four `furnace_axi128_to512`
-adapters. No hierarchical peeks, test-only substitutions or extra top-level
-debug interfaces implement these connections. The parent literal engine
-hierarchy includes `unified_tensor`, `decompressor`, `decryptor`,
-`vision_frontend`, `audio_frontend`, `fusion_buffer` and `multimodal_control`.
-
-## Legal configurations
-
-| Parameter | Default | Legal domain |
-|---|---:|---|
-| MAX_TILE_BYTES | 4096 | 1..65536 |
-| RING_DEPTH | 8 | 1..16 |
-| IN_WIDTH, IN_HEIGHT | 8, 8 | each 1..64 |
-| OUT_WIDTH, OUT_HEIGHT | 8, 8 | each 1..64 |
-| FFT_N | 16 | 8, 16, 32, 64 |
-| FUSION_DEPTH | 4 | 1..16 |
-| MAILBOX_DEPTH | 4 | 1..16 |
-| MAX_DMA_BYTES | 1048576 | 1..1048576 |
-
-IMEM and DMEM are each 16384 bytes. There are 16 unsigned 16-bit
-semaphores, four 32-bit mailbox FIFOs and 16 interrupt sources. DMA bursts
-contain at most 16 beats. Illegal parameters must elaborate safely and
-terminate with `PARAMETER ERROR`; illegal datapaths are generate-guarded.
-
-## Cycle and degenerate-boundary table
-
-All handshakes use **pre-edge** VALID && READY. Updates and new VALID values
-are visible **post-edge**, never retroactively consumed.
+## Cycle & Degenerate-Boundary Table
 
 | Boundary | Required behavior |
 |---|---|
-| Active reset | New resettable state uses asynchronous active-low reset. All public ready/valid/irq and response payloads are zero. RAM arrays need not reset; uninitialized entries must not become valid. |
-| Reset released before E0 | E0 enables interfaces; no request handshakes at E0. E1 is the first possible request edge. |
-| Local/MMIO request at En | Capture at En, execute/read at En+1, response valid post-En+1, earliest response handshake En+2. One response remains stable until consumed. |
-| New firmware DATA at En | Capture payload and metadata atomically; parent-facing token visible post-En and first consumable En+1. Full slots hold every field stable. |
-| DMA command at En | Capture at En, validate En+1, first address visible no earlier than post-En+2. Invalid/zero commands complete post-En+1 without AXI traffic. |
-| FIFO DEPTH=1 | Read/write pointers remain zero; full simultaneous pop/push returns old head and replaces it without changing occupancy. |
-| FIFO DEPTH=3 or other non-power-of-two | Explicit compare against DEPTH-1 wraps pointers; no bit-mask wrap. |
-| FIFO empty simultaneous pop/push | Pop fails; push stores one word; no empty bypass. |
-| Semaphore post + TAKE | Hardware post is linearized before software at the software execution edge; TAKE may consume the new token. |
-| Semaphore saturation | A post/GIVE at 65535 preserves 65535 and sets overflow; a same-edge TAKE does not retroactively erase overflow. |
-| IRQ set + ACK | Set wins: next pending = (pending & ~ACK) \| sources. |
-| Sticky overflow set + clear | Set wins; clearing cannot hide a new overflow. |
-| DMA one beat / one byte | LAST accompanies the only beat; exact low-byte tail strobes; no read-modify-write. |
-| Singleton frame | FIRST and LAST may coincide. Preserve parent packet semantics and mandatory singleton testing. |
+| Sampling | Only pre-edge valid AND ready transfers; registers update post-edge. A newly asserted valid cannot transfer on its creation edge. |
+| Reset | Public outputs zero while reset is active; ownership state resets asynchronously. First released edge may begin ordinary refill/control/arbitration, never revive old work. |
+| One byte / one SG | Real descriptor, one SG entry and one payload byte are read; one terminal output beat with keep=1 is emitted. |
+| Ring depth 1 | Every retirement explicitly wraps physical index to zero. |
+| Ring depth 3 or other non-power-of-two | Compare index with entries-1; explicit wrap, no bit-mask approximation. |
+| Simultaneous controls | Configuration has priority; exactly one held response per accepted transaction. |
+| Refill and reserve | Apply min(capacity,T+rate), then subtract reserved cost. |
+| Refill and refund | Apply min(capacity,T+rate+reserved_cost) in widened arithmetic. |
+| Reset versus any event | Reset cancels all events without refunds or completions. |
+| Reserve/refund/retire | Mutually exclusive; completion handshake alone advances consumer/index. |
 
-CPU fetch response consumption at F is followed by decode F+1,
-execute/setup F+2 and non-memory/non-M retirement F+3. Memory response
-consumption at M retires at M+1. M instructions perform 64 registered radix-2
-iterations, two normalization/sign stages, then retirement, including W
-operations and exceptional divisions. No following instruction issues early.
-Interrupts are taken only at boundaries with no outstanding request.
+## Host ring lifecycle and control
 
-Preserved parent elastic stage counts are bilinear six, FIR/spatial four,
-FP32 multiply four CE stages and FP32 add five CE stages (or four with
-OUTPUT_REGISTER=0 plus the enclosing register). An L-stage token accepted
-En first becomes valid post-En+L-1 and consumable En+L without stalls.
-Parent tensor completion is visible post-En+24 and consumable En+25.
+Configuration is accepted only with no pending control response and all queues,
+DMA, scheduler and X2 drained. Code 0 is OK, 1 invalid configuration,
+2 invalid producer update. Invalid transactions are accepted and rejected
+explicitly without state changes. Capacity is 1..256, base is 32-byte aligned,
+and the complete ring address range cannot overflow 64 bits. Enabled queues
+require nonzero quantum and burst; disabled queues still require legal layout.
+Rate zero is legal. Configuration zeroes producer, consumer, index, deficit
+and tokens, and never grants implicit credit.
 
-## CPU and memory
+Producer/consumer are wrapping unsigned 32-bit sequences. Doorbell forward
+delta from the previous producer must fit current free capacity. Disabled,
+backward and overrun updates are rejected. Repetition is a legal no-op.
+Posting transfers immutable descriptor, SG and payload ownership to the DUT.
+Ownership returns only on external completion handshake, not on completion
+valid or output-last. The host must not modify posted storage.
 
-The control processor implements RV64IM and machine-mode Zicsr, standard LP64,
-little-endian memory and no custom scheduler instructions. An unavailable
-Hammer-V image is not claimed to have run. Physical addresses must be
-zero-extended 32-bit values; unsupported high bits fault, never truncate.
-The single-issue multicycle core has one outstanding unified request:
-`req_valid/ready`, `req_write`, `req_instr`, `req_addr[63:0]`,
-`req_wdata[63:0]`, `req_wstrb[7:0]`, `req_size[1:0]`, and
-`rsp_valid/ready`, `rsp_rdata[63:0]`, `rsp_error`. Size 0..3 means
-1/2/4/8 bytes. Data/strobes and response bytes are low-justified. Fetch
-uses instruction=1, write=0, size=2. Requests and responses hold under stalls.
+Descriptor address is base+(physical_index<<5). A 32-byte little-endian
+descriptor contains SG address at 0..7, total length at 8..11, segment count at
+12, zero reserved bytes at 13..15, cookie at 16..19 and zero reserved bytes at
+20..31. SG address is 16-byte aligned. Each 16-byte SG entry contains payload
+address at 0..7, length at 8..11 and zero reserved bytes at 12..15.
+Count is 1..MAX_SG; every length is positive; widened sum must equal total
+length in 1..MAX_PACKET_BYTES. Total length exceeding burst is malformed.
+All address ranges and sums are checked before narrowing.
+Validate the entire SG list before any payload read. Concatenate segments
+without padding, loss or repetition; arbitrary unaligned payload addresses
+are legal.
 
-All RV64I instructions and RV64M operations, including W forms, are required.
-x0 is immutable, W results sign-extend, integer arithmetic wraps. JALR clears
-bit0 then checks IALIGN=32. Misaligned/faulting accesses have no memory side
-effect. Signed division truncates toward zero; remainder follows dividend
-sign. Zero divisor produces all-one quotient and unchanged dividend remainder;
-signed minimum/-1 produces minimum quotient and zero remainder.
+## Bridge and completion contract
 
-Required CSRs: mstatus, misa (RV64IM), mie, mip, direct-only mtvec, mscratch,
-mepc, mcause, mtval, mcycle/cycle and minstret/instret. ECALL, EBREAK, MRET,
-WFI and serialized FENCE/FENCE.I are supported. Invalid instructions,
-unsupported CSR accesses and unsupported mtvec modes trap. Precise causes
-are instruction misalignment/access 0/1, illegal 2, breakpoint 3,
-load misalignment/access 4/5, store misalignment/access 6/7 and machine
-ECALL 11; machine-external interrupt is interrupt cause11. Trap entry does
-not retire the instruction. MIE/MPIE/MPP follow machine semantics.
-Reset PC is 0x10000, CPU halted, MPP=M, enables zero. RUN=0 requests
-halt after retirement; it cannot cancel accepted bus work.
+One exact positive byte-addressed request is outstanding globally. Request
+fields hold until accepted. Low byte lanes arrive first. Nonterminal beats
+have full keep; terminal keep is a nonzero contiguous low mask and last occurs
+at the exact requested byte count. The bridge owns physical alignment,
+PCIe splitting and memory ordering. A terminal error can end a request early.
+Malformed streams drain through last before further requests; a missing last
+has no timeout-based progress guarantee.
 
-| Range | Owner/access |
-|---|---|
-| 0x0000..0x1fff | Unchanged parent CSRs, CPU and host |
-| 0x2000..0x2fff | X3 CSRs |
-| Host 0x4000..0x7fff | IMEM aperture |
-| Host 0x8000..0xbfff | DMEM aperture |
-| CPU 0x10000..0x13fff | IMEM, executable/read-only |
-| CPU 0x20000..0x23fff | DMEM, read/write |
-| 0x80000000..0xffffffff | DDR, read/write/executable |
+Completion status: 0 success, 1 descriptor malformed, 2 SG malformed,
+3 memory read error, 4 response protocol error. First detected error wins;
+simultaneous response error precedes format error. Cookie is decoded from a
+complete descriptor, otherwise zero. Success bytes equals full descriptor
+length; failure bytes is zero. Every owned descriptor completes exactly once.
+Failures after reservation emit no packet and refund exactly once. Success
+requires all three public final-payload, CRC and metadata handshakes.
+All completion fields hold under backpressure. DMA checksum checking is
+disabled but CRC generation, protocol reporting and metadata remain active.
 
-Other accesses fault. Local memories are synchronous, little-endian and
-byte-write enabled. Host memory writes while CPU runs return SLVERR.
-CPU MMIO requires aligned 32-bit non-instruction accesses. Host AW and W
-may arrive independently. Host/CPU MMIO use fair round-robin transaction
-arbitration, reset tie priority host, toggling on service; parent ownership
-lasts through response. Held VALID does not duplicate operations.
+## Exact DRR and token arithmetic
 
-## X3 registers
+Visit ascending queues from zero, explicitly wrapping seven to zero. Add a
+16-bit quantum once on entry to a nonempty enabled queue, saturating its
+32-bit deficit. Repeated successful heads in that visit do not add quantum.
+An observed truly empty queue resets deficit; pending unvalidated heads are
+not empty. Insufficient deficit or tokens ends the visit and retains deficit.
+A successor requiring prevalidation retains the no-add visit state. Error
+heads bypass scheduling without debit or extra quantum.
 
-Unsupported offsets, misalignment and reserved-bit writes return SLVERR and
-set sticky protocol error. Byte strobes apply before reserved-bit checks.
+Tokens are unsigned 48-bit Q32.16, rate unsigned 32-bit Q16.16 bytes/clock,
+capacity=burst<<16. At every enabled edge refill=min(capacity,T+rate) with
+widened arithmetic. E0 eligibility uses pre-edge balance, not same-edge refill.
+Grant handshake applies refill then subtracts bytes<<16. Failure refund applies
+refill plus the original cost before saturation. Deficit refunds saturate at
+0xffffffff. A reservation is settled once, retained until retirement, and
+never refunded merely for an output stall.
 
-| Address | Register/semantics |
-|---|---|
-| 0x2000 | RO version 0x03000000 |
-| 0x2004 | CPU_CTRL RUN bit0; core-only reset bit1 only while halted |
-| 0x2008 | CPU_STATUS running bit0, halted bit1 |
-| 0x200c | Last trap cause, interrupt indicator bit31 |
-| 0x2010/0x2014 | Last trap PC low/high |
-| 0x2018 | W1C error: protocol0, semaphore overflow1, DMA2, core bus3 |
-| 0x2020 | FW_MODE bit0: set only halted and parent quiescent; sticky until global reset; clearing a set mode faults |
-| 0x2040/0x2044/0x2048 | DMA_SRC/DST/LEN; writes while busy fault |
-| 0x204c | CMD bit0 snapshots configuration; busy start faults without disturbance |
-| 0x2050 | STATUS busy0, sticky done1, error15:8 |
-| 0x2054 | W1C DMA done/error |
-| 0x2100/0x2104/0x2108 | IRQ_PENDING / IRQ_MASK / IRQ_ACK W1C |
-| 0x2200/0x2204 | Vision pixel u8 / signed audio sample i16; wait for free slot |
-| 0x2210/0x2214 | Metadata ID15:0, LAST16; captured at DATA execution |
-| 0x2220 | RO slot-full vision0/audio1 |
-| 0x2400+16*i | Semaphore i TAKE read, returns1/decrements iff nonzero |
-| 0x2404+16*i | Semaphore GIVE write1, overflow faults/preserves |
-| 0x2408+16*i | Semaphore VALUE read |
-| 0x2600+16*i | Mailbox i DATA, read pop / write push |
-| 0x2604+16*i | Mailbox STATUS count4:0, empty8, full9 |
+## Frozen internal interface table
 
-RUN requires FW_MODE. Mode0 preserves external parent streams. Mode1 zeros
-external v_ready/a_ready/mm_valid, uses internal registered firmware slots
-and internally consumes parent multimodal output independently of host
-mm_ready. Mode switch cannot split a packet.
+All five new modules have scalar clk/rst_n. Names below are literal port and
+top interconnect names. Packed queue q occupies [q*W +: W].
 
-DMA completion (including error) posts semaphore0 once; internally consumed
-multimodal completion posts semaphore1 once. Software graph semaphores
-are 2..15. Mailbox empty reads/full writes fault without mutation.
-IRQ sources are parent level0, DMA pulse1, internal multimodal pulse2,
-sticky protocol3, mailbox-nonempty4..7, sticky overflow8, core trap pulse9,
-zero10..15. Pending and mask reset zero. IRQ is the masked registered
-pending reduction. Firmware clears originating level conditions as well
-as aggregator pending.
+| Producer -> consumer | Exact signals and widths | Transfer / ownership |
+|---|---|---|
+| Top -> rings | public q_cfg_*, db_*, ctl_* with public directions; ctl_allow, dma_enable, pf_allow | ctl_allow permits drained configuration only; DMA mode permits doorbells |
+| Rings -> scheduler/shaper | cfg_commit, cfg_commit_queue[2:0], cfg_commit_enable, cfg_commit_quantum[15:0], cfg_commit_rate[31:0], cfg_commit_burst[15:0] | valid accepted configuration edge event; zero credits and load operands |
+| Rings -> scheduler/top | q_enabled[7:0], q_pending[7:0], head_valid[7:0], head_seq[255:0], head_bytes[255:0], head_cookie[255:0], head_status[23:0], q_quantum[127:0], q_burst[127:0] | read-only view, rings exclusively authoritative |
+| Rings -> DMA | pf_valid, pf_queue[2:0], pf_seq[31:0], pf_desc_addr[63:0], pf_burst[15:0]; reverse pf_ready | registered stable offer; handshake claims {queue,consumer sequence} |
+| DMA -> rings | pf_done_valid, pf_done_queue[2:0], pf_done_seq[31:0], pf_done_bytes[31:0], pf_done_cookie[31:0], pf_done_status[2:0]; reverse pf_done_ready | registered result publishes only matching claim, after all reads terminate |
+| Shaper -> scheduler | token_balance[383:0] | read-only pre-edge state view |
+| Scheduler -> top | grant_valid, grant_queue[2:0], grant_seq[31:0], grant_bytes[31:0]; reverse grant_ready | post-E2 stable grant |
+| Top -> DMA | run_valid, run_queue[2:0], run_seq[31:0], run_bytes[31:0]; reverse run_ready | exactly same transfer edge as grant, no hidden command queue |
+| Top -> owners | reserve_fire, refund_fire, retire_fire; evt_queue[2:0], evt_seq[31:0], evt_bytes[31:0]; retire_reserved to scheduler/shaper | atomic non-backpressurable events, mutually exclusive |
+| DMA -> X2 via top | pkt_valid, pkt_data[DATA_WIDTH-1:0], pkt_keep[(DATA_WIDTH>>3)-1:0], pkt_last; reverse pkt_ready | whole successful packet only, stable registered stream |
+| Top -> DMA | x2_done | edge accepting last outstanding public result |
+| DMA -> top | run_done_valid, run_done_queue[2:0], run_done_seq[31:0], run_done_status[2:0]; reverse run_done_ready | registered result, lock/cache retained to retirement |
+| Scheduler -> top | decision_busy, scheduler_idle | E0 through rejection or reserved retirement |
+| DMA -> top | dma_busy | includes prefetch, held results, active run, RAM/stream and retirement wait |
+| Rings -> top | rings_idle | no pending descriptors, claims, heads, offers or control response |
+| Top -> scheduler | decision_allow | gates new E0 only |
 
-## Memory arbitration and burst DMA
+Rings exclusively owns configuration, producer/consumer/index, prefetch claims
+and valid head records. Head records remain stable from publication through
+completion handshake; cookies are not identities. DMA exclusively owns eight
+SG caches, read sequencing, response staging and one packet RAM. Successful
+cache data retains exact identity until retirement; cache validity never
+replaces ring head authority. Scheduler exclusively owns visits, deficits,
+snapshots, grant and deficit reservation. Shaper exclusively owns balances and
+token reservation. Top owns arbitration, one active identity, X2 result flags
+and held external completion, not duplicate queue/credit state.
 
-Six clients are legacy0..3, CPU4 and DMA5, with these external physical IDs.
-Read/write arbitration is independent, burst round-robin, with one global
-outstanding read and one write; write ownership extends through B.
-Legacy response IDs are restored. 128-bit adapters align down to 64 bytes,
-select the addressed read quarter and place original data/strobes in the
-write quarter. CPU adapters select bytes and use exact strobes. Extra
-read bytes are allowed only in DDR. Partial writes never use read-modify-write.
-Check IDs, response errors and LAST; faults must propagate.
+An unaccepted prefetch offer holds unchanged. No new offer is created after E0.
+An in-flight prefetch may finish while a decision waits; grant waits until that
+offer and execution finish. At dispatch boundaries errors receive first
+round-robin opportunity, then cached service, then discovery. Prefetch returns
+to arbitration rather than chaining. Top serializes dispatch through external
+completion. Doorbells may append during stalls but cannot replace heads.
+Internal identity mismatch is an invariant violation, not a successful fallback.
 
-DMA copies real DDR bytes. Source/destination must be 64-byte aligned DDR
-addresses; positive lengths are <=MAX_DMA_BYTES, exact ranges nonoverlapping
-and end-exclusive sums <=2^32. Zero length succeeds only with otherwise
-valid aligned DDR addresses. Invalid commands complete code1 without AXI
-traffic. Bus/ID/LAST faults complete code2 after draining accepted traffic;
-success code0 never precedes final B handshake.
+## Frozen cycle tables (verbatim contract)
 
-Each burst buffers up to16 512-bit beats before writing. Beats are the
-minimum of remaining rounded-up beats,16, source page remainder and
-destination page remainder. Neither channel crosses4KiB. LAST matches the
-final beat. Partial final WSTRB selects only requested low bytes, preserving
-all destination guards. Faulted predecessors never launch dependent nodes.
+Parent edge convention remains unchanged. With no stalls a legacy beat accepted E0 emerges from X1 post-E15: seven beat registers E0..E6, accumulator E7, seven tail registers E8..E14 and output register E15. A legacy final input beat accepted E0 gives parser output E258, RSS acceptance E259 and output E555, classifier acceptance E556 and output E1195, held top metadata valid E1196. Independently verify these timings. X1 advancement stalls freeze its pipeline; completed X2 metadata holds independently. Configuration stays excluded until all three packet-result channels drain.
 
-## Firmware graph and numerical contract
+New scheduler cycle table: visit-entry edge V commits a single saturating quantum addition when required. E0 is no earlier than V+1 and captures a stable head identity/length, applicable credited deficit and pre-edge token balance. E1 registers deficit and token comparisons from that snapshot. E2 commits rejection or asserts the registered grant. Grant is visible post-E2 and transfers no earlier than E3. No new candidate replaces it before rejection or completion-driven retirement. Deficit/token debit occurs on grant handshake only. Ordinary token refill continues on E0/E1/E2 and stalled-grant edges; eligibility deliberately remains based on E0, which is safe because no competing reservation can reduce its balance.
 
-Firmware is freestanding, project-local, deterministically generated using
-declared tools. Host initializes images, manifests, keys and data, enables
-FW_MODE and writes RUN; after RUN it performs no scheduling, sample
-injection, acknowledgements or dependency resolution.
+Read commands are registered, including commands issued after descriptor/SG processing. Response handling uses a registered full-beat staging register and bounded byte-serial unpacking. A response accepted R0 is captured post-R0; its bytes are consumed from a fixed eight-bit shift slice starting R1, one byte per edge in ascending order. dma_rsp_ready is deasserted while the staging beat is being consumed, except terminal-drain logic may discard malformed data without writes. No response byte writes packet RAM at R0. Packet RAM is byte-wide with synchronous registered reads and one-byte writes. A successful final response's last staged byte writes at W, followed by a separate validation/publication edge W+1. No packet RAM output read issues before W+2. Packet read edge P0 registers one addressed byte; P1 appends that old registered byte to a beat-assembly register. When the final byte of a full or terminal output beat is appended at P1, a separate P2 edge transfers the assembled beat to the registered pkt_* output. Consequently a final successful response at R0 cannot produce packet valid before R1 or first transfer before R2; this chosen implementation is intentionally later and has the explicit P0/P1/P2 RAM/assembly/output stages. Hold assembled output during stalls, and issue no read that can overwrite needed staged data. All lane shifts are constant byte shifts; packet-length-dependent packing chains are forbidden. This staging supports one-byte packets and both lane widths without asynchronous RAM assumptions.
 
-DMEM boot manifest at0x20000 holds graph DDR address+0, node count+4,
-parent ring base+8, vision/audio/result bases+12/+16/+20, AES key words+24..39.
-Graphs have1..64 64-byte records: opcode+0, ID+4, dependency bitmap u64+8,
-six u32 arguments+16..39, wait/post semaphore+40/+44, status address+48,
-zero reserved+52..63. Dependencies name record indices. Semaphore
-0xffffffff means none; graph indices otherwise2..15. Reject cycles,
-invalid dependencies/opcodes/reserved bits/indices explicitly.
-
-Opcode1 copies DMA(src,dst,len); opcode2 submits a supplied128-byte parent
-descriptor at arg0 through a legal ring slot; opcode3 streams image/audio
-at arg0/1 with frame ID arg2; opcode4 is a zero-argument barrier.
-Unused arguments are zero. Scan runnable nodes, overlap independent DMA
-and parent work, consume actual completion interrupts/tokens, post graph
-tokens only after success, and mark failed dependents explicitly.
-Status records are16 bytes: state(0 pending,1 active,2 successful,3 failed,
-4 dependency-failed), error, ID, zero. Final mailbox notification follows
-commit of every terminal record.
-
-The shipped implementation is `firmware/scheduler.S`. The standard-library-only
-Python assembler `firmware/build.py` produces little-endian RV64IM instruction
-words in `firmware/scheduler.hex`; `scheduler.json` binds the source, image,
-entry address and geometry, and `scheduler.lst` lists the actual instructions.
-Build from the project root:
-
-```
-python3 firmware/build.py
-python3 firmware/build.py --in-width 3 --in-height 2 --fft-n 32 --output firmware/c2.hex
-```
-
-The firmware image geometry must equal the instantiated input image dimensions
-and FFT_N. Ring and fusion depths are read from parent CSRs, not compiled in.
-Output image dimensions do not affect the firmware's input sample count.
-The checked-in default image starts at entry 0x10000; its exact byte count and
-source/image hashes are in `firmware/scheduler.json`. Image construction is
-not evidence that its instructions executed correctly.
-
-Firmware uses DMEM graph cache 0x20100..0x210ff, local node states
-0x21200..0x215ff, scheduler work 0x21800..0x219ff and a downward-growing
-stack initially at 0x23ff0. The boot manifest at 0x20000..0x20027 is retained.
-Firmware publishes execution state at manifest+0x40 (1 running,2 success,
-3 failure), summary error at +0x44, and synchronous-trap cause/PC u64 at
-+0x48/+0x50. These are software-owned DMEM fields, not new hardware registers
-or product debug ports. A manifest and its addressed graph/data must be
-initialized before RUN; firmware initializes its own working storage.
-
-Node error codes 0..8 retain hardware meanings. Firmware errors are
-0x100 invalid graph/manifest,0x101 dependency cycle,0x102 failed dependency,
-0x103 unsatisfiable semaphore wait with no active producer,0x104 saturated
-software post semaphore,0x105 invalid opcode-specific source arguments and
-0x106 synchronous firmware trap. Invalid graph structure is rejected before
-launch; unsafe manifest/status pointers produce an error mailbox notification
-without writing through the invalid pointer. Successful software semaphore
-posts occur only after a real resource completion; dependency masks are
-advanced only after all four status words have been committed.
-
-The scheduler has one active native DMA, one parent descriptor and one frame,
-independently. It scans pending nodes, incrementally supplies vision/audio
-samples, polls actual parent descriptor retirement, and consumes hardware
-semaphore0/1 completion counts for DMA/frames. Parent descriptor IRQ requests
-are authenticated descriptor content and are never rewritten to force an
-interrupt. Consequently descriptors are polled; DMA/frame events use
-aggregator mask bits1/2 and machine-external interrupt wait/resume.
-The ISR acknowledges parent IRQ status and aggregator event bits; parent
-multimodal-fault level source0 is masked to avoid an interrupt storm during
-error propagation. A subsequent quiescent boot clears that parent fault.
-Global MIE is disabled over the final completion check and WFI, while MEIE
-remains enabled, avoiding an acknowledge-before-sleep lost-wakeup race.
-
-Final mailbox0 message is 0x58430000 OR node_count OR (failure?0x8000:0).
-Manifest/trap rejection messages use 0x5843ff00 OR firmware_error. Firmware
-waits for mailbox capacity, writes the notification only after status fences,
-then writes CPU_CTRL.RUN=0 itself. Host reads, including mailbox pops, remain
-legal during autonomous operation; host writes are not part of scheduling.
-For another graph, wait for the notification and CPU halted status, initialize
-the new manifest/data while halted, request core-only reset and assert RUN.
-Do not globally reset: parent ring/feature slots, semaphore accounting,
-mailbox pointers and interrupt state retain their hardware wrap history.
-See `firmware/README.md` for the precise host initialization sequence.
-
-The required graph exercises encrypted compressed weight loading,
-LZ4/AES-GCM authenticated INT4 commit, concurrent ISP/DSP, fusion/tensor,
-DMA publication, fork/join, semaphore waits/posts and IRQ wait/resume.
-Repeated executions must wrap queues without reset. Preserved BF16 and
-W4/BF16 standalone descriptor modes remain required.
-
-Preserve the complete parent128-byte descriptor ABI: version1@0;
-mode1:0/IRQ8/authenticated-weight-commit9 flags@4; frame address/bytes@8/12;
-plain/activations/result@16/20/24; weight bytes/vector count/tile ID@28/32/36;
-nonce bytes40..51; tag52..67; completion address68; zero remainder.
-AAD is bytes0..51. Preserve alignment, range/nonoverlap checks, allocation,
-error priority and suppression of unsafe completion writes. Result record
-is u64 result/u32 ID/u32 zero. Completion is status/ID/authenticated bytes/zero.
-Errors0..8 mean success, descriptor, frame, LZ4 offset, authentication,
-memory, tensor protocol, stream framing, fusion ID mismatch. Failure must
-not release quarantined plaintext or replace authenticated weights.
-
-Mode0 is eight signed INT4 weights (LS nibble first) times eight signed
-INT16 activations (LS lane first), wrapping64-bit accumulation. Modes1/2
-are BF16/BF16 and INT4/BF16. BF16 extends to FP32 bits31:16. Independently
-round each multiplication, balanced reduction level and inter-vector sum
-to nearest-even, with gradual underflow, signed zero, infinity and canonical
-NaN0x7fc00000; result is zero-extended FP32 bits, never tolerance-based.
-
-ISP uses align-corners Q8 floor coordinates (zero for singleton output),
-clamped neighbors, bilinear +32768 before shift16, replicated spatial
-edges, Sobel and four-neighbor Laplacian. Feature u16 lanes are floor
-mean intensity/abs gx/abs gy/abs Laplacian. DSP resets FIR per frame,
-uses[1,3,3,1]/8 arithmetic floor, radix2 FFT Q15 twiddles, full products,
-shift15 and signed32 butterfly saturation. Audio lanes are mean abs FIR,
-DC L1/N, bins1..N/4 L1/N, binsN/4+1..N/2 L1/N (spectral saturation32767).
-Vision occupies low64 activation bits, audio high64. FIFO pairing is
-arrival ordered; ID mismatch overrides with error8/zero, otherwise vision
-error precedes audio error.
-
-Preserve LZ4 frame magic04 22 4d 18/version1/BD0x40, optional content size,
-block/content XXH32 seed0 checksums, independent/dependent/raw blocks,
-overlapping matches and history/decoded limits. Reject invalid flags,
-dictionary/reserved fields, offsets, extensions, lengths/LAST/checksums
-and final-sequence constraints. AES128/GCM ordering follows its standard
-byte strings with explicit conversion at the preserved boundary.
+If the last of the three public X2 result handshakes occurs at H0, run_done_valid may first assert post-H1; result handshake is no earlier than H2 and registered external success completion appears no earlier than post-H2. Error result similarly uses a separate registered transition after error detection and terminal drainage; external error completion is registered, not combinationally asserted from input response valid. Prefetch-detected error completion follows head publication and registered arbitration, never the detection edge. Document these tables verbatim in SPEC. Extra registered address/check stages may delay prefetch/read issue but must not alter these frozen local scheduler, RAM and result-stage conventions.
 
 ## Independent acceptance and reproduction
 
-Designer owns `rtl/*.sv`, `design/*.md` and `firmware/*`. Independent
-Verifier owns all `tests/*`, models, harnesses and execution orchestration.
-No Designer functional simulation or synthesis is an acceptance shortcut.
-
-From the delivered root, mandatory portable L1 entry points are:
+Run from the delivered root (dependencies: python3, iverilog/vvp, verilator,
+make, g++, yosys; versions are recorded by verification, not assumed here):
 
 ```
 python3 tests/verify.py --suite behavior
 python3 tests/verify.py --suite defects
 python3 tests/verify.py --suite synthesis
-python3 tests/verify.py --suite portability
+python3 tests/verify.py --suite delivery
 ```
 
-These Verifier-owned commands executed successfully in shared-runtime
-attempts 13..16, respectively, with exit zero and settled process scopes.
-The linked L1 receipts use the verification runner's `advisory: true`
-preparation format; their location alone does not admit a check. Admission
-is through the corresponding runtime attempt, not a promotion of arbitrary
-preparation evidence. All four receipts matched 124/124 current source hashes
-before this documentation-only repair. Their captured document hashes are
-historical, not hashes of these updated documents. RTL, firmware and tests
-are unchanged by this repair.
+Default invocation executes all four self-contained suites. Verifier owns their
+sources and independent models. Required matrix is both widths crossed with
+(1,1),(65,3),(9216,16), seeds 17,43,89; each cell >=64 successful DMA handshakes
+across eight queues and >=16 legacy packets. Capacities 1 and 3 have two actual
+wraps each; maximum cells also exercise 8 and 256 with two actual wraps and
+independently justified sequence rollover. No generated-request labels replace
+observations. Every error, reset, protocol, numerical, overlap, stalled-output
+and invalid-parameter obligation in the admitted plan remains mandatory.
+At least six compiling functional mutants must be killed by specific numerical
+or assertion failures, not compiler failure or timeout. Yosys covers real
+hierarchy, both widths and all three storage tuples, preserved tops, zero
+latches, no black boxes and substantive connected state.
 
-| L1 suite | Runtime attempt | Recorded result | Retained receipt | Linked child receipts present |
-|---|---:|---|---|---:|
-| behavior | 13 | Passed, 86 checks | [behavior](../evidence/preparation/portable-l1-behavior-20261031T034652019790Z/receipt.json) | 22/86 |
-| defects | 14 | Passed, 1 orchestration check; 10 detected mutants with passing original controls | [defects](../evidence/preparation/portable-l1-defects-20261031T075815435666Z/receipt.json) | 1/1 |
-| synthesis | 15 | Passed, 8 checks | [synthesis](../evidence/preparation/portable-l1-synthesis-20261031T080310085203Z/receipt.json) | 2/8 |
-| portability | 16 | Passed, 1 fresh-source reproduction check | [portability](../evidence/preparation/portable-l1-portability-20261031T081110448724Z/receipt.json) | 1/1 |
-
-These are the current receipt-availability counts at this handoff, not the
-superseded audit of attempts 5..8. The 64 missing behavior children and six
-missing synthesis children remain retention gaps despite successful recorded
-suite exits. Escalate them to the shared runtime for preservation and recovery;
-do not reconstruct missing evidence or automatically rerun unchanged suites.
-Earlier results and failures remain historical, not replacements for this index.
-
-L1 covers real compact Icarus simulation, compiled-Verilator matrix runs,
-independent architectural/device/graph and numerical/crypto comparisons,
-behavioral mutations, Yosys structural synthesis and fresh-copy execution.
-For example, retained C4 matrix logs for
-[seed17](../evidence/preparation/firmware-matrix-c4-all-seeds-20261031T043122373435Z/simulate-seed17.stdout.txt),
-[seed89](../evidence/preparation/firmware-matrix-c4-all-seeds-20261031T043122373435Z/simulate-seed89.stdout.txt)
-and [seed2027](../evidence/preparation/firmware-matrix-c4-all-seeds-20261031T043122373435Z/simulate-seed2027.stdout.txt)
-each record 33 graphs, 66 descriptors, 33 frames, 33 mailbox transfers and
-4,325,376 compared bytes. The current
-[C4 synthesis result](../evidence/preparation/complete-hierarchy-synthesis-20261031T080955477111Z/structural.json),
-netlist and diagnostics also survive. These surviving artifacts do not restore
-the other missing child receipts or establish complete evidence retention.
-These are simulation observations, not physical-board workload measurements.
-
-Dependencies are Python3, Icarus/vvp, Verilator, make, g++ and Yosys with
-the retained compatible SV lowering path. Versions established by retained
-logs, rather than a new environment query, are:
-
-| Tool | Recorded version | Retained log |
-|---|---|---|
-| Python | 3.12.3 | [version](../evidence/preparation/portable-l1-behavior-20261031T034652019790Z/runtime-python-version.stdout.txt) |
-| Icarus Verilog | 12.0 (stable) | [version](../evidence/preparation/cross-simulator-seeded-stimulus-20261031T034652148262Z/tool-version-iverilog.stdout.txt) |
-| vvp | 12.0 (stable) | [version](../evidence/preparation/cross-simulator-seeded-stimulus-20261031T034652148262Z/tool-version-vvp.stderr.txt) |
-| Verilator | 5.020, Debian 5.020-1 | [version](../evidence/preparation/cross-simulator-seeded-stimulus-20261031T034652148262Z/tool-version-verilator.stdout.txt) |
-| GNU Make | 4.3 | [version](../evidence/preparation/cross-simulator-seeded-stimulus-20261031T034652148262Z/tool-version-make.stdout.txt) |
-| g++ | 13.3.0, Ubuntu 13.3.0-6ubuntu2~24.04.1 | [version](../evidence/preparation/cross-simulator-seeded-stimulus-20261031T034652148262Z/tool-version-g++.stdout.txt) |
-| Yosys | 0.33, git 2584903a060 | [version](../evidence/preparation/complete-hierarchy-synthesis-20261031T080955477111Z/yosys-version.stdout.txt) |
-| Quartus Prime | 17.1.0 Build 590, Standard Edition | [fitter summary](../.vulcan/engineering/run-0001/quartus_sta_work/top.fit.summary) |
-
-Earlier static-only receipts remain advisory historical evidence:
-`evidence/preparation/static-elaboration-20261030T133847971990Z/receipt.json`
-and `evidence/preparation/x3-static-elaboration-20261030T135157024762Z/receipt.json`.
-They are not substitutes for the executed L1 suites. Historical failed probes
-remain retained and are not reclassified by later passing runs. The earlier
-ENOSPC transport failure was resolved; attempt 9 completed normally but
-Reviewer rejected stale delivery claims, not a demonstrated RTL failure.
-No unchanged simulation was rerun for this documentation repair, and no
-installation is authorized.
-
-Behavior requires real Icarus compact smoke, full compiled-Verilator
-C0..C4 cells with seeds17/89/2027, independent CPU/device/graph and
-bit-exact numerical/cryptographic models, every admitted coverage threshold,
-precise trap/ISA tests and observed queue-wrap/concurrency/AXI error behavior.
-Each cell/seed runs >=2 autonomous >=6-node graphs with fork/join;
-descriptor retirements >=2*RING_DEPTH+1, multimodal results
->=2*FUSION_DEPTH+1 and mailbox transfers >=2*MAILBOX_DEPTH+1.
-Applicable observed coverage counters must be nonzero; only the admitted
-singleton legal-geometry distinctions apply.
-
-| Cell | MAX_TILE_BYTES | RING_DEPTH | FUSION_DEPTH | MAILBOX_DEPTH | Input | Output | FFT_N | MAX_DMA_BYTES |
-|---|---:|---:|---:|---:|---|---|---:|---:|
-| C0 | 4096 | 8 | 4 | 4 | 8x8 | 8x8 | 16 | 1048576 |
-| C1 | 64 | 1 | 1 | 1 | 1x1 | 1x1 | 8 | 1 |
-| C2 | 256 | 3 | 3 | 3 | 3x2 | 5x3 | 32 | 4096 |
-| C3 | 4096 | 8 | 4 | 4 | 8x8 | 3x2 | 64 | 1048576 |
-| C4 | 65536 | 16 | 16 | 16 | 64x64 | 64x64 | 64 | 1048576 |
-
-Default/large cells must observe multi-beat DMA, DMA/engine overlap and
-competing memory clients. C1 must observe legal one-byte DMA and oversize
-rejection. MAX_TILE_BYTES=1 is a separate legal parameter test, not a
-fabricated four-byte-weight descriptor workload.
-
-Defect sensitivity requires >=10 isolated valid RTL mutants, passing
-original controls and intended behavioral assertion failures, including
-W sign extension, division corners, semaphore double-take, mailbox wrap,
-IRQ priority, DMA page/tail/premature completion, quarantine and fusion.
-Synthesis covers the complete X3 and standalone X1/X2 hierarchies,
-singleton/non-power-of-two leaves, zero latches, no black boxes and
-substantive connected state. Portability copies only declared sources
-and executes fresh firmware/engine smoke without private/generated inputs.
-No stale or missing receipt is a passing check.
-
-Icarus is limited to compact <=500000-cycle smoke; full cells and mutations
-use compiled Verilator. Evidence directories are unique and end in a
-timestamp/hash; failures are retained. The shared runtime alone owns
-L1.5 timing lint, L2 Quartus17.1 STA (WNS>=0 at<=10ns) and L3 Arria10
-PCIe Gen3x8 HIL (>=3 consecutive deterministic physical passes).
-Zero combinational division/modulo and no mixed blocking/nonblocking
-sequential assignments are mandatory. No timing waiver is presumed.
-The runtime-authored, independently approved product PDF follows engineering
-acceptance and is not an earlier verification prerequisite.
-
-## Measured native tiers and remaining limitations
-
-The following links identify authoritative shared-runtime records for audit
-only. Runtime metadata is not a deliverable design/verification source or a
-portable execution dependency. Recorded gate status does not broaden the
-workload or netlist actually measured, nor change any acceptance threshold.
-
-| Tier | Recorded result and exact scope |
+| Claim | Required independent evidence |
 |---|---|
-| L1.5 | [rtl-timing-lint.json](../.vulcan/engineering/run-0001/rtl-timing-lint.json) reports passed for 39 RTL files, zero division/modulo hazards and zero mixed-assignment hazards. This is not STA certification. |
-| L2 | [quartus-sta.json](../.vulcan/engineering/run-0001/quartus-sta.json) reports passed at 10.000 ns, setup WNS +5.672 ns, hold WNS -0.203 ns and 20 failing hold paths. Its `fit_mode` is `plan_plus_post_map_sta`; `sta_summary.netlist_mode` is `post_map`. |
-| L3 | [board-hil.json](../.vulcan/engineering/run-0001/board-hil.json) reports passed and `L3_BRIDGE_CONNECTIVITY_PROBE_ONLY`: three deterministic register-57 reads returning 178 (0xb2). No X3 bitstream flashing or on-board firmware/engine workload execution is evidenced. |
-| L4 | No executed OS/Linux boot is evidenced. No L4 pass is claimed or new check added. |
+| Legacy byte/CRC/header/RSS/classification correctness and exact latency | behavior receipt, independent bytewise/numerical models and public handshake scoreboards |
+| Ring, SG, DRR, tokens, refund, reset and backpressure | behavior receipt with observed coverage and frozen interface assertions |
+| Defect sensitivity | defects receipt with disposable source provenance and first functional failure |
+| Synthesis portability and storage connectivity | synthesis receipt and real Yosys JSON/statistics |
+| Portable reproduction | delivery receipt from a fresh isolated copy using only declared sources, compact legacy-plus-DMA smoke |
+| 100 MHz timing and physical PCIe | shared-runtime native timing lint, Quartus 17.1 STA with WNS>=0, three consecutive physical Gen3x8 deterministic passes |
+| Product PDF | runtime authors and independently reviews after engineering acceptance |
 
-The [completed fitter summary](../.vulcan/engineering/run-0001/quartus_sta_work/top.fit.summary)
-reports success for `bellows_n3_top` on `10AX115N2F45E1SG`. Its resources,
-also recorded in the native receipt, are:
-
-| Resource field | Recorded value |
-|---|---:|
-| ALMs | 226557 |
-| Registers | 297056 |
-| Block-memory bits | 567188 |
-| `m20k_ram_blocks` | 0 |
-| DSP blocks | 114 |
-| Virtual pins | 1517 |
-
-Completed fitting/resource accounting is distinct from the receipt's
-post-map STA netlist scope. Neither the positive setup slack nor the
-native `passed` label establishes post-fit, all-slack timing closure.
-Negative hold slack is explicitly retained. The 1517 virtual pins bound
-the implementation scope; these results do not prove physical board I/O,
-DDR PHY or PCIe integration. Reported block-memory bits and zero reported
-RAM blocks are preserved exactly, without inferring an M20K count or
-successful local-memory block-RAM inference from RTL attributes.
-
-Shared-runtime follow-through must supply source-bound post-fit STA at
-<=10.0 ns with nonnegative setup and hold slack and zero failing hold paths,
-plus three consecutive deterministic physical X3 firmware-workload passes.
-Preserve the native passed statuses while recording their measured limits;
-neither connectivity reads nor completed fitting satisfy these missing scopes.
-No project `fpga/*` wrapper exists; do not infer board integration or an RTL
-repair from these records.
-
-Missing parent `GENERATIONAL_HANDOFF.md` and historical PPA remain unresolved
-provenance limitations. All original coverage, timing, physical workload
-and independent-review requirements remain unchanged. The Verifier-owned
-[verification index](../evidence/verification-receipts.json) and
-[PPA/resource summary](../evidence/ppa-resource-summary.json) already exist,
-but still reference superseded L1 results/retention counts. Verifier must refresh
-them for attempts 13..16 and audit the changed claims/links without repeating
-unchanged simulations. Engineering delivery approval and the subsequent
-runtime-owned independently approved product PDF remain pending.
+Evidence is generated in fresh project-relative evidence/<suite>-<timestamp_or_hash>/
+directories with immutable receipts, exact command/cwd, hashes, tools, times,
+exit/timeout and raw logs. Preparation is advisory only. No timing, hardware,
+verification or review success is claimed by this design handoff. Delivery
+smoke is bounded portability evidence, not a second full matrix. Metadata,
+private paths, credentials, transcripts and existing generated binaries are
+not product inputs. Missing tools or boards are unmet gates, never waivers.

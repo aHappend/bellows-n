@@ -1,17 +1,17 @@
 {
   "gate": "board-hil",
-  "timestamp_utc": "2026-10-31T03:37:37.581210+00:00",
+  "timestamp_utc": "2026-10-29T17:13:53.864954+00:00",
   "chip_id": "23645547322997765",
   "heartbeat": {
     "alive": true,
-    "age_s": 0.17,
+    "age_s": 0.16,
     "host": null,
     "user": null,
     "detail": "Bridge healthy"
   },
   "reg57_probe": {
     "exit_code": 0,
-    "stdout": "Read register 57 (0x00000039): 178 (0x000000b2)\nFPGA diagnostics total time: 0.15 seconds"
+    "stdout": "Read register 57 (0x00000039): 178 (0x000000b2)\nFPGA diagnostics total time: 0.16 seconds"
   },
   "requested_runs": 3,
   "deterministic_across_runs": true,
@@ -49,10 +49,10 @@
     }
   ],
   "detail": "All 3 physical FPGA HIL run(s) passed deterministically on chip 23645547322997765.",
+  "source_sha256": "803fb76eeff6df17452537c1fddc8f97b4c357d851b0465568d0d258e6ed00ce",
+  "applicable": true,
   "hil_verification_tier": "L3_MULTI_PROFILE_SOFTREG_VECTOR_AND_TELEMETRY_EXECUTION",
   "verification_scope_note": "Catapult Arria 10 GX PCIe Gen3x8 BAR0 + SoftReg multi-profile M20K weight/stimulus streaming (SoftReg 4096..4436 -> SoftReg 3<=256 across 8 model/stimulus profiles + 3x repeatability gate), hardware cycle counter (SoftReg 11), memory transaction beat telemetry (SoftReg 12), and 6-word output vector readback (SoftReg 16..21).",
-  "source_sha256": "06e22ffb161d4695ab40f4ac270a2a149133691fea00d4613efb00a7440bd1f8",
-  "applicable": true,
   "softreg_vector_telemetry": {
     "softreg_0_magic_hex": "0x414e56494c5f4533",
     "softreg_2_status_hex": "0x000000010000060e",
