@@ -1,0 +1,14 @@
+Analysis & Synthesis Status : Successful - Mon Nov  2 17:36:57 2026
+Quartus Prime Version : 17.1.0 Build 590 10/25/2017 SJ Standard Edition
+Revision Name : top
+Top-level Entity Name : furnace_x5_top
+Family : Arria 10
+Logic utilization (in ALMs) : N/A until Partition Merge
+Total registers : N/A until Partition Merge
+Total pins : N/A until Partition Merge
+Total virtual pins : N/A until Partition Merge
+Total block memory bits : N/A until Partition Merge
+Total DSP Blocks : N/A until Partition Merge
+Total HSSI RX channels : N/A until Partition Merge
+Total HSSI TX channels : N/A until Partition Merge
+Total PLLs : N/A until Partition Merge
