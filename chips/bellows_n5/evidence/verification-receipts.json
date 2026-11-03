@@ -7427,13 +7427,13 @@
       ]
     },
     "check:portable-reproduction": {
-      "attempt_id": 8,
-      "duration_s": 229.46095830900595,
-      "stdout_preview": "tool execution active: command 0, 30s\ntool execution active: command 0, 60s\ntool execution active: command 0, 90s\ntool execution active: command 0, 120s\ntool execution active: command 0, 150s\ntool execution active: command 0, 180s\ntool execution active: command 0, 210s\n{\"receipt\": \"evidence/l1-portable-20261103T010633757202Z/receipt.json\", \"status\": \"passed\"}\n",
+      "attempt_id": 13,
+      "duration_s": 217.01573827583343,
+      "stdout_preview": "tool execution active: command 0, 30s\ntool execution active: command 0, 60s\ntool execution active: command 0, 90s\ntool execution active: command 0, 120s\ntool execution active: command 0, 150s\ntool execution active: command 0, 180s\ntool execution active: command 0, 210s\n{\"receipt\": \"evidence/l1-portable-20261103T035520645294Z/receipt.json\", \"status\": \"passed\"}\n",
       "receipt_count": 1,
       "receipts": [
         {
-          "path": "evidence/l1-portable-20261103T010633757202Z/receipt.json",
+          "path": "evidence/l1-portable-20261103T035520645294Z/receipt.json",
           "data": {
             "argv": [
               "python3",
@@ -7444,7 +7444,7 @@
               "evidence/l1-portable"
             ],
             "cwd": ".",
-            "start_utc": "2026-11-03T01:06:33.757458+00:00",
+            "start_utc": "2026-11-03T03:55:20.645585+00:00",
             "commands": [
               {
                 "argv": [
@@ -7456,21 +7456,21 @@
                   "--output-prefix",
                   "evidence/portable-child"
                 ],
-                "cwd": "evidence/l1-portable-20261103T010633757202Z/clean-project",
+                "cwd": "evidence/l1-portable-20261103T035520645294Z/clean-project",
                 "timeout_s": 3600,
-                "start_utc": "2026-11-03T01:06:33.841859+00:00",
-                "stdout": "evidence/l1-portable-20261103T010633757202Z/command-0.stdout.txt",
-                "stderr": "evidence/l1-portable-20261103T010633757202Z/command-0.stderr.txt",
+                "start_utc": "2026-11-03T03:55:20.727890+00:00",
+                "stdout": "evidence/l1-portable-20261103T035520645294Z/command-0.stdout.txt",
+                "stderr": "evidence/l1-portable-20261103T035520645294Z/command-0.stderr.txt",
                 "exit_code": 0,
                 "timed_out": false,
-                "end_utc": "2026-11-03T01:10:19.047971+00:00",
-                "duration_s": 225.20569811295718
+                "end_utc": "2026-11-03T03:58:53.550900+00:00",
+                "duration_s": 212.82258259993978
               }
             ],
             "source_sha256": {
-              "design/ARCHITECTURE.md": "390e672040d20379e93f955476da9fce4ce0a38f04c67534323bba2565bc9c38",
+              "design/ARCHITECTURE.md": "1294fd5e45c7cde636195bdd1e1b42ea0d9d315620f052c04157f82917b198e2",
               "design/GENERATIONAL_HANDOFF.md": "b80bcf623ec00055d6b0aefad2e0d99a40f9d0388fa82127958217f05a998ec0",
-              "design/SPEC.md": "0a797ceb379d3444dbfad8fb70b6efa970b57242c6165db4eae3a1f94869379e",
+              "design/SPEC.md": "32ff60fd1eade30bca1fe6bbe014b8a95fa39c15ce20f3ccb87219858990af16",
               "furnace_x4_reference/rtl/furnace_classifier64.sv": "44c72460408feab31df402f7b116a1ed6f009e31373a72977df1a79c30544af9",
               "furnace_x4_reference/rtl/furnace_collective_engine.sv": "3eed2c0852b1e1980a2c597b9bd4e2795af3d62de12de26b44b4dbdbfefe93e9",
               "furnace_x4_reference/rtl/furnace_crc_beat_pipeline.sv": "f3befc035ae51dfc3394f0c21ef42a316247c18745e0c96354a1013565f5cf64",
@@ -7496,7 +7496,7 @@
               "furnace_x4_reference/rtl/furnace_x3_top.sv": "41dd75a796a9b9253668d6a5bdb9ffaae9e9889c72f1b88ebbcaa53d888e62dd",
               "furnace_x4_reference/rtl/furnace_x4_top.sv": "e7163f592114553e27c23fb75b7431cd293b56e28645bfc54f52b8c3925a53fe",
               "rtl/furnace_classifier64.sv": "44c72460408feab31df402f7b116a1ed6f009e31373a72977df1a79c30544af9",
-              "rtl/furnace_collective_engine.sv": "3eed2c0852b1e1980a2c597b9bd4e2795af3d62de12de26b44b4dbdbfefe93e9",
+              "rtl/furnace_collective_engine.sv": "984473175cac099afd05b0a73da7a61f720d22766c2abd2a992ee115f1e6b6f0",
               "rtl/furnace_crc_beat_pipeline.sv": "f3befc035ae51dfc3394f0c21ef42a316247c18745e0c96354a1013565f5cf64",
               "rtl/furnace_crc_linear.sv": "03678c27c3cbee43abb181b54775e6c65c11734c6eab60bf87730b01d0b6b3fb",
               "rtl/furnace_crc_output_stage.sv": "4e0c2ea87836334980aa9d1f4016c130109b244f713d0be46f33d95b35b83072",
@@ -7525,7 +7525,7 @@
               "rtl/furnace_x5_moe_router.sv": "cb56e93866e311bcf4367588c4fe0ae9738ce4f00d05e26e57cfbb5392e464d6",
               "rtl/furnace_x5_packet_rx.sv": "1db4e8bd034e0b2c0ac0d165c65a1676484b161fa40fb54f4550248fd2c2c584",
               "rtl/furnace_x5_packet_tx.sv": "e1ad9ec07c932bee0b7050fd99d71e3e8c134b5e14954b58cf0ab73fabbf104e",
-              "rtl/furnace_x5_payload_ram.sv": "ac6579ceb6d24c21cd517f21bbeabcbeba03403948e616309f3518a56730a55e",
+              "rtl/furnace_x5_payload_ram.sv": "749755406d7ebaaf73407421e786def4b5fb55e6b44894ea27469edf273d338a",
               "rtl/furnace_x5_qp_table.sv": "6fcfbe1779c8ccd7b9f786ba6f14fd211b732c720a78e34e49df8fce6ba552df",
               "rtl/furnace_x5_reorder.sv": "e2ebcbbe701c1613b165b8b107562963c9f42518f9637998b44d3b42607bab67",
               "rtl/furnace_x5_sack.sv": "142e92a155e03a0f4408506d9ba5a0ef7da3762ea08f8d0dd0c59d30e44f94da",
@@ -7555,7 +7555,7 @@
               "tests/verify.py": "f2c6447fb757cd7137dc2ee2114ecb1ce0c47196ba328b04d58fbfa6f8a6a21e",
               "tests/write_body.svh": "77ba219d499a57b167290abfc575fb2fdacc86d490618fbc8f7a850c54f6acf3"
             },
-            "end_utc": "2026-11-03T01:10:19.066255+00:00",
+            "end_utc": "2026-11-03T03:58:53.569498+00:00",
             "exit_code": 0
           }
         }
