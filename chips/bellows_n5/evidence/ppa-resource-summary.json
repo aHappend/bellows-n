@@ -1,0 +1,11 @@
+{
+  "chip": "Bellows-N5",
+  "fitter_resources": {
+    "total_registers": 528740,
+    "block_memory_bits": 627280,
+    "dsp_blocks": 1,
+    "virtual_pins": 12845
+  },
+  "timing": {},
+  "verification_tiers": {}
+}
